@@ -33,6 +33,16 @@ class ListResponse(BaseResponse, Generic[T]):
     page_size: int = Field(10, description="Items per page")
 
 
+class BatchResponse(BaseResponse, Generic[T]):
+    """Batch processing response schema for content extraction operations."""
+    
+    data: List[T] = Field(default_factory=list, description="Processed items")
+    total_processed: int = Field(0, description="Total items processed")
+    successful: int = Field(0, description="Successfully processed items")
+    failed: int = Field(0, description="Failed processing items")
+    batch_metadata: dict = Field(default_factory=dict, description="Batch processing metadata")
+
+
 class ErrorResponse(BaseModel):
     """Error response schema."""
     
