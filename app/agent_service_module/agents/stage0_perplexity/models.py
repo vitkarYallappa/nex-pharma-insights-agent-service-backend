@@ -63,18 +63,3 @@ class BatchExtractionStatus(BaseModel):
         if self.total_urls == 0:
             return 0.0
         return (self.completed + self.failed) / self.total_urls * 100
-
-# Legacy models for backward compatibility with existing service structure
-class Stage0PerplexityRequest(BaseModel):
-    """Legacy request model for stage0_perplexity - maintained for compatibility"""
-    request_id: str
-    content: str
-    metadata: Optional[Dict[str, Any]] = None
-    timestamp: datetime = datetime.utcnow()
-
-class Stage0PerplexityResponse(BaseModel):
-    """Legacy response model for stage0_perplexity - maintained for compatibility"""
-    request_id: str
-    result: Dict[str, Any]
-    status: str
-    timestamp: datetime = datetime.utcnow()

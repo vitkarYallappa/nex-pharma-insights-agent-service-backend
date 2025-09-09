@@ -1,6 +1,6 @@
 from typing import List, Optional
 from ...config.service_factory import ServiceFactory
-from .models import ContentExtractionRequest, PerplexityResponse, Stage0PerplexityRequest, Stage0PerplexityResponse
+from .models import ContentExtractionRequest, PerplexityResponse
 from ...shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -155,40 +155,3 @@ class PerplexityService:
             
         except Exception as e:
             logger.error(f"Failed to store extraction results: {str(e)}")
-
-
-class Stage0PerplexityService:
-    """Legacy service for backward compatibility"""
-    
-    def __init__(self):
-        self.perplexity_service = PerplexityService()
-        self.storage_client = ServiceFactory.get_storage_client()
-        self.database_client = ServiceFactory.get_database_client()
-    
-    async def process(self, request: Stage0PerplexityRequest) -> Stage0PerplexityResponse:
-        """Process the stage0_perplexity request - legacy compatibility method"""
-        try:
-            # For backward compatibility, we'll use the new service internally
-            # but maintain the old interface
-            result = {
-                "message": "Processing stage0_perplexity request", 
-                "request_id": request.request_id,
-                "content_processed": len(request.content),
-                "timestamp": request.timestamp.isoformat()
-            }
-            
-            logger.info(f"Legacy perplexity processing for request: {request.request_id}")
-            
-            return Stage0PerplexityResponse(
-                request_id=request.request_id,
-                result=result,
-                status="completed"
-            )
-            
-        except Exception as e:
-            logger.error(f"Legacy perplexity processing error: {str(e)}")
-            return Stage0PerplexityResponse(
-                request_id=request.request_id,
-                result={"error": str(e)},
-                status="failed"
-            )

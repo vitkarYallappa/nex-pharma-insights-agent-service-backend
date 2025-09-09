@@ -31,18 +31,3 @@ class SerpResponse(BaseModel):
     def get_urls(self) -> List[str]:
         """Extract URLs from results"""
         return [str(result.url) for result in self.results]
-
-# Legacy models for backward compatibility
-class Stage0SerpRequest(BaseModel):
-    """Request model for stage0_serp."""
-    request_id: str
-    content: str
-    metadata: Optional[Dict[str, Any]] = None
-    timestamp: datetime = datetime.utcnow()
-
-class Stage0SerpResponse(BaseModel):
-    """Response model for stage0_serp."""
-    request_id: str
-    result: Dict[str, Any]
-    status: str
-    timestamp: datetime = datetime.utcnow()

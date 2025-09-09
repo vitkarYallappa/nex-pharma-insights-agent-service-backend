@@ -126,18 +126,3 @@ class RetryConfig(BaseModel):
     max_delay: float = Field(default=60.0, ge=1.0, le=300.0)
     exponential_base: float = Field(default=2.0, ge=1.1, le=5.0)
     retry_on_statuses: List[str] = Field(default=["failed", "timeout", "rate_limited"])
-
-# Legacy models for backward compatibility
-class Stage0OrchestratorRequest(BaseModel):
-    """Legacy request model for stage0_orchestrator - maintained for compatibility"""
-    request_id: str
-    content: str
-    metadata: Optional[Dict[str, Any]] = None
-    timestamp: datetime = datetime.utcnow()
-
-class Stage0OrchestratorResponse(BaseModel):
-    """Legacy response model for stage0_orchestrator - maintained for compatibility"""
-    request_id: str
-    result: Dict[str, Any]
-    status: str
-    timestamp: datetime = datetime.utcnow()

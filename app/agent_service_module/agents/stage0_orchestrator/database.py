@@ -1,6 +1,5 @@
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from ...shared.database.base_repository import BaseRepository
 from ...config.service_factory import ServiceFactory
 from ...shared.utils.logger import get_logger
 
@@ -49,42 +48,3 @@ class OrchestratorDatabase:
         except Exception as e:
             logger.error(f"Pipeline history query error: {str(e)}")
             return []
-
-
-class Stage0OrchestratorRepository(BaseRepository):
-    """Legacy database operations for stage0_orchestrator - maintained for backward compatibility"""
-    
-    def __init__(self):
-        super().__init__(table_name="stage0_orchestrator_data")
-    
-    def get_table_name(self) -> str:
-        return "stage0_orchestrator_data"
-    
-    async def save_request(self, request_data: dict) -> bool:
-        """Save request data."""
-        try:
-            return await self.create(request_data)
-        except Exception as e:
-            logger.error(f"Legacy save request error: {str(e)}")
-            return False
-    
-    async def get_request(self, request_id: str) -> dict:
-        """Get request data."""
-        try:
-            return await self.get_by_id(request_id)
-        except Exception as e:
-            logger.error(f"Legacy get request error: {str(e)}")
-            return {}
-    
-    async def update_status(self, request_id: str, status: str) -> bool:
-        """Update request status."""
-        try:
-            request_data = await self.get_by_id(request_id)
-            if request_data:
-                request_data['status'] = status
-                request_data['updated_at'] = datetime.utcnow().isoformat()
-                return await self.update(request_data)
-            return False
-        except Exception as e:
-            logger.error(f"Legacy update status error: {str(e)}")
-            return False
