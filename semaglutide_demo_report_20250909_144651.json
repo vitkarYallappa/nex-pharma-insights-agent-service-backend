@@ -1,0 +1,211 @@
+{
+  "report_metadata": {
+    "request_id": "sema_demo_1757409411",
+    "title": "Semaglutide and Tirzepatide Market Intelligence",
+    "generated_at": "2025-09-09T14:46:51.774478",
+    "priority": "High"
+  },
+  "execution_summary": {
+    "sources_processed": 3,
+    "successful_sources": 3,
+    "failed_sources": 0,
+    "total_urls_discovered": 15,
+    "total_content_extracted": 15,
+    "overall_success_rate": 100.0,
+    "unique_content_items": 15
+  },
+  "intelligence_data": {
+    "regulatory_content": {
+      "source": "FDA",
+      "count": 5,
+      "items": [
+        {
+          "url": "https://fda.example.com/result_1",
+          "title": "Sample Title 1",
+          "content": "Sample extracted content for URL 1...",
+          "source": "FDA",
+          "category": "regulatory",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://fda.example.com/result_2",
+          "title": "Sample Title 2",
+          "content": "Sample extracted content for URL 2...",
+          "source": "FDA",
+          "category": "regulatory",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://fda.example.com/result_3",
+          "title": "Sample Title 3",
+          "content": "Sample extracted content for URL 3...",
+          "source": "FDA",
+          "category": "regulatory",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://fda.example.com/result_4",
+          "title": "Sample Title 4",
+          "content": "Sample extracted content for URL 4...",
+          "source": "FDA",
+          "category": "regulatory",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://fda.example.com/result_5",
+          "title": "Sample Title 5",
+          "content": "Sample extracted content for URL 5...",
+          "source": "FDA",
+          "category": "regulatory",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        }
+      ]
+    },
+    "clinical_content": {
+      "source": "ClinicalTrials.gov",
+      "count": 5,
+      "items": [
+        {
+          "url": "https://clinicaltrialsgov.example.com/result_1",
+          "title": "Sample Title 11",
+          "content": "Sample extracted content for URL 11...",
+          "source": "ClinicalTrials.gov",
+          "category": "clinical",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://clinicaltrialsgov.example.com/result_2",
+          "title": "Sample Title 12",
+          "content": "Sample extracted content for URL 12...",
+          "source": "ClinicalTrials.gov",
+          "category": "clinical",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://clinicaltrialsgov.example.com/result_3",
+          "title": "Sample Title 13",
+          "content": "Sample extracted content for URL 13...",
+          "source": "ClinicalTrials.gov",
+          "category": "clinical",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://clinicaltrialsgov.example.com/result_4",
+          "title": "Sample Title 14",
+          "content": "Sample extracted content for URL 14...",
+          "source": "ClinicalTrials.gov",
+          "category": "clinical",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://clinicaltrialsgov.example.com/result_5",
+          "title": "Sample Title 15",
+          "content": "Sample extracted content for URL 15...",
+          "source": "ClinicalTrials.gov",
+          "category": "clinical",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        }
+      ]
+    },
+    "academic_content": {
+      "source": "NIH",
+      "count": 5,
+      "items": [
+        {
+          "url": "https://nih.example.com/result_1",
+          "title": "Sample Title 6",
+          "content": "Sample extracted content for URL 6...",
+          "source": "NIH",
+          "category": "academic",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://nih.example.com/result_2",
+          "title": "Sample Title 7",
+          "content": "Sample extracted content for URL 7...",
+          "source": "NIH",
+          "category": "academic",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://nih.example.com/result_3",
+          "title": "Sample Title 8",
+          "content": "Sample extracted content for URL 8...",
+          "source": "NIH",
+          "category": "academic",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://nih.example.com/result_4",
+          "title": "Sample Title 9",
+          "content": "Sample extracted content for URL 9...",
+          "source": "NIH",
+          "category": "academic",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        },
+        {
+          "url": "https://nih.example.com/result_5",
+          "title": "Sample Title 10",
+          "content": "Sample extracted content for URL 10...",
+          "source": "NIH",
+          "category": "academic",
+          "extraction_confidence": 0.85,
+          "word_count": 1200
+        }
+      ]
+    }
+  },
+  "structured_outputs": [
+    {
+      "url": "https://fda.example.com/result_1",
+      "title": "Sample Title 1",
+      "content": "Sample extracted content for URL 1...",
+      "source": "FDA",
+      "category": "regulatory",
+      "extraction_confidence": 0.85,
+      "word_count": 1200
+    },
+    {
+      "url": "https://fda.example.com/result_2",
+      "title": "Sample Title 2",
+      "content": "Sample extracted content for URL 2...",
+      "source": "FDA",
+      "category": "regulatory",
+      "extraction_confidence": 0.85,
+      "word_count": 1200
+    },
+    {
+      "url": "https://fda.example.com/result_3",
+      "title": "Sample Title 3",
+      "content": "Sample extracted content for URL 3...",
+      "source": "FDA",
+      "category": "regulatory",
+      "extraction_confidence": 0.85,
+      "word_count": 1200
+    }
+  ],
+  "keywords_used": [
+    "semaglutide",
+    "tirzepatide",
+    "wegovy",
+    "obesity drug",
+    "weight loss medication",
+    "GLP-1 receptor agonist",
+    "diabetes treatment",
+    "clinical trials obesity"
+  ]
+}
