@@ -1,4 +1,4 @@
-from pydantic import BaseModel as PydanticBaseModel
+from pydantic import BaseModel as PydanticBaseModel, Field
 from typing import Dict, Any, Optional
 from datetime import datetime
 import uuid
@@ -33,4 +33,26 @@ class BaseModel(PydanticBaseModel):
     
     def to_json(self) -> str:
         """Convert model to JSON string."""
-        return self.json() 
+        return self.json()
+
+class BaseAgentModel(BaseModel):
+    """Base model for all agent data structures"""
+    request_id: str = Field(..., description="Request identifier")
+    
+    class Config:
+        validate_assignment = True
+        use_enum_values = True
+
+class AgentRequest(BaseAgentModel):
+    """Base request model for agent operations"""
+    agent_type: str = Field(..., description="Agent type identifier")
+    input_data: Dict[str, Any] = Field(..., description="Input data")
+    config: Dict[str, Any] = Field(default_factory=dict)
+
+class AgentResponse(BaseAgentModel):
+    """Base response model for agent operations"""
+    agent_type: str = Field(..., description="Agent type identifier")
+    output_data: Dict[str, Any] = Field(..., description="Output data")
+    success: bool = Field(default=True)
+    error_message: Optional[str] = Field(default=None)
+    processing_time: Optional[float] = Field(default=None) 
