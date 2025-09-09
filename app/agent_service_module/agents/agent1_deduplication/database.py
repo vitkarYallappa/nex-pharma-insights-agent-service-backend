@@ -1,0 +1,26 @@
+from ...shared.database.base_repository import BaseRepository
+
+class Agent1DeduplicationRepository(BaseRepository):
+    """Database operations for agent1_deduplication."""
+    
+    def __init__(self):
+        super().__init__(table_name="agent1_deduplication_data")
+    
+    def get_table_name(self) -> str:
+        return "agent1_deduplication_data"
+    
+    async def save_request(self, request_data: dict) -> bool:
+        """Save request data."""
+        return await self.create(request_data)
+    
+    async def get_request(self, request_id: str) -> dict:
+        """Get request data."""
+        return await self.get_by_id(request_id)
+    
+    async def update_status(self, request_id: str, status: str) -> bool:
+        """Update request status."""
+        request_data = await self.get_by_id(request_id)
+        if request_data:
+            request_data['status'] = status
+            return await self.update(request_data)
+        return False
