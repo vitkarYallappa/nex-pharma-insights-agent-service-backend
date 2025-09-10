@@ -1,8 +1,8 @@
 import asyncio
-from typing import Optional, Dict, Any
-from datetime import datetime
 import signal
 import sys
+from datetime import datetime
+from typing import Optional, Dict, Any
 
 from ..strategies.table_strategy import TableProcessingStrategy
 from ..models import MarketIntelligenceRequest, RequestStatus
@@ -22,7 +22,7 @@ class TableProcessor:
     with configurable polling intervals and error handling.
     """
     
-    def __init__(self, strategy: TableProcessingStrategy, config: Dict[str, Any]):
+    def __init__(self, strategy, config: Dict[str, Any]):
         """
         Initialize the table processor.
         
@@ -406,7 +406,6 @@ async def run_table_processor(config: Dict[str, Any]):
 if __name__ == "__main__":
     """Run table processor as standalone script"""
     import json
-    import os
     
     # Load configuration
     config_file = os.getenv("TABLE_PROCESSOR_CONFIG", "table_processor_config.json")

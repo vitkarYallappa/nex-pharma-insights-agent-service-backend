@@ -14,14 +14,40 @@ class SerpService:
         self.storage_client = ServiceFactory.get_storage_client()
         self.database_client = ServiceFactory.get_database_client()
     
-    async def search(self, query: str, num_results: int = 10) -> SerpResponse:
-        """Execute search query"""
+    async def search(self, query: str, num_results: int = 10, date_filter: str = "m") -> SerpResponse:
+        """Execute search query with date filtering"""
         try:
-            logger.info(f"Starting SERP search: {query}")
+            logger.info(f"Starting SERP search: {query} (date_filter: {date_filter})")
             
             request = SerpRequest(
                 query=query,
-                num_results=num_results
+                num_results=num_results,
+                date_filter=date_filter  # Default to last month for recent results
+            )
+            
+            # Execute search
+            response = await self.serp_client.search(request)
+            
+            # Store results
+            await self._store_search_results(response)
+            
+            logger.info(f"SERP search completed: {len(response.results)} results found")
+            return response
+            
+        except Exception as e:
+            logger.error(f"SERP search error: {str(e)}")
+            raise Exception(f"Search failed: {str(e)}")
+    
+    async def search_with_date_range(self, query: str, start_date: str, end_date: str, num_results: int = 10) -> SerpResponse:
+        """Execute search query with custom date range"""
+        try:
+            logger.info(f"Starting SERP search with date range: {query} ({start_date} to {end_date})")
+            
+            request = SerpRequest(
+                query=query,
+                num_results=num_results,
+                start_date=start_date,
+                end_date=end_date
             )
             
             # Execute search

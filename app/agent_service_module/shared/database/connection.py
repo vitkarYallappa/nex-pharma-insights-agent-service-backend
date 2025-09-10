@@ -1,7 +1,6 @@
 from typing import Union
 from ...config.service_factory import ServiceFactory
 from .dynamodb_client import DynamoDBClient
-from .dynamodb_mock import DynamoDBMock
 
 class DatabaseConnection:
     """Database connection manager using factory pattern."""
@@ -10,8 +9,8 @@ class DatabaseConnection:
         self._client = None
     
     @property
-    def client(self) -> Union[DynamoDBClient, DynamoDBMock]:
-        """Get database client (real or mock based on configuration)."""
+    def client(self) -> DynamoDBClient:
+        """Get database client."""
         if self._client is None:
             self._client = ServiceFactory.get_database_client()
         return self._client

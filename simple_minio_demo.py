@@ -209,10 +209,9 @@ async def main():
     # Check configuration
     serp_key = os.getenv("SERPAPI_KEY")
     perplexity_key = os.getenv("PERPLEXITY_API_KEY")
-    use_mock = os.getenv("AGENT_SERVICE_USE_MOCK_DATA", "true").lower() == "true"
     
     print(f"\n🔧 CONFIGURATION:")
-    print(f"   API Mode: {'Mock' if use_mock else 'Real APIs'}")
+    print(f"   API Mode: Production APIs")
     print(f"   SERP API: {'✅' if serp_key else '❌'}")
     print(f"   Perplexity API: {'✅' if perplexity_key else '❌'}")
     print(f"   MinIO Endpoint: localhost:9001")

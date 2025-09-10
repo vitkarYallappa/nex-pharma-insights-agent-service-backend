@@ -189,11 +189,10 @@ async def main():
     print("="*70)
     
     # Check current configuration
-    use_mock = os.getenv("AGENT_SERVICE_USE_MOCK_DATA", "true").lower() == "true"
     serp_key = os.getenv("SERPAPI_KEY")
     perplexity_key = os.getenv("PERPLEXITY_API_KEY")
     
-    print(f"Current Mode: {'Mock' if use_mock else 'Real APIs'}")
+    print(f"Current Mode: Production APIs")
     print(f"SERP Key: {'✅ Set' if serp_key else '❌ Missing'}")
     print(f"Perplexity Key: {'✅ Set' if perplexity_key else '❌ Missing'}")
     

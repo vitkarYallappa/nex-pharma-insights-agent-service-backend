@@ -9,6 +9,10 @@ class SerpRequest(BaseModel):
     language: str = Field(default="en")
     country: str = Field(default="us")
     engine: str = Field(default="google")
+    # Date filtering parameters
+    date_filter: Optional[str] = Field(default=None, description="Date filter: d (day), w (week), m (month), y (year)")
+    start_date: Optional[str] = Field(default=None, description="Start date in YYYY-MM-DD format")
+    end_date: Optional[str] = Field(default=None, description="End date in YYYY-MM-DD format")
 
 class SerpResult(BaseModel):
     """Individual search result"""

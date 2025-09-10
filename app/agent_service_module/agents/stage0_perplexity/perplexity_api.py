@@ -1,20 +1,20 @@
-import asyncio
 import aiohttp
-from typing import List, Dict, Any, Optional
-from .models import ContentExtractionRequest, PerplexityResponse, ExtractedContent
+from typing import Dict, Any, Optional
+from .models import ExtractedContent
+from .prompt_config import PromptManager
 from ...config.settings import settings
 from ...shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 class PerplexityAPI:
-    """Real Perplexity API client for content extraction"""
+    """Perplexity API client for single URL content extraction"""
     
-    def __init__(self):
+    def __init__(self, prompt_type: str = "default"):
         self.api_key = settings.PERPLEXITY_API_KEY
         self.base_url = "https://api.perplexity.ai"
         self.session = None
-        self.rate_limit_delay = 1.0  # seconds between requests
+        self.prompt_type = prompt_type
     
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -24,66 +24,42 @@ class PerplexityAPI:
         if self.session:
             await self.session.close()
     
-    async def extract_content(self, request: ContentExtractionRequest) -> PerplexityResponse:
-        """Extract content from multiple URLs"""
+    def _get_system_prompt(self) -> str:
+        """Get system prompt for content extraction - easy to update for demos"""
+        return PromptManager.get_system_prompt(self.prompt_type)
+    
+    def _get_user_prompt(self, url: str) -> str:
+        """Get user prompt for specific URL - easy to customize for different needs"""
+        return PromptManager.format_user_prompt(url, self.prompt_type)
+    
+    def set_prompt_type(self, prompt_type: str):
+        """Change prompt type for demos - default, demo, detailed, quick"""
+        self.prompt_type = prompt_type
+        logger.info(f"Prompt type changed to: {prompt_type}")
+    
+    async def extract_single_url(self, url: str) -> Optional[ExtractedContent]:
+        """Extract content from single URL"""
         try:
             if not self.session:
                 self.session = aiohttp.ClientSession()
             
-            logger.info(f"Starting Perplexity extraction for {len(request.urls)} URLs")
+            logger.info(f"Extracting content from URL: {url} (prompt_type: {self.prompt_type})")
             
-            extracted_content = []
-            successful = 0
-            failed = 0
-            
-            for url in request.urls:
-                try:
-                    content = await self._extract_single_url(url, request.extraction_mode)
-                    if content:
-                        extracted_content.append(content)
-                        successful += 1
-                    else:
-                        failed += 1
-                    
-                    # Rate limiting
-                    await asyncio.sleep(self.rate_limit_delay)
-                    
-                except Exception as e:
-                    logger.warning(f"Failed to extract {url}: {str(e)}")
-                    failed += 1
-                    continue
-            
-            return PerplexityResponse(
-                request_id=request.request_id,
-                total_urls=len(request.urls),
-                successful_extractions=successful,
-                failed_extractions=failed,
-                extracted_content=extracted_content,
-                processing_metadata={"extraction_mode": request.extraction_mode}
-            )
-            
-        except Exception as e:
-            logger.error(f"Perplexity API error: {str(e)}")
-            raise Exception(f"Content extraction failed: {str(e)}")
-    
-    async def _extract_single_url(self, url: str, mode: str) -> Optional[ExtractedContent]:
-        """Extract content from single URL"""
-        try:
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"
             }
             
             payload = {
-                "model": "llama-3.1-sonar-small-128k-online",
+                "model": "sonar-pro",
                 "messages": [
                     {
                         "role": "system",
-                        "content": f"Extract and summarize content from the provided URL. Mode: {mode}"
+                        "content": self._get_system_prompt()
                     },
                     {
                         "role": "user", 
-                        "content": f"Extract content from: {url}"
+                        "content": self._get_user_prompt(url)
                     }
                 ],
                 "max_tokens": 2000,
@@ -99,13 +75,13 @@ class PerplexityAPI:
                 response.raise_for_status()
                 data = await response.json()
                 
-                return self._parse_extraction_response(data, url)
+                return self._parse_response(data, url)
                 
         except Exception as e:
-            logger.error(f"Single URL extraction error for {url}: {str(e)}")
+            logger.error(f"URL extraction failed for {url}: {str(e)}")
             return None
     
-    def _parse_extraction_response(self, data: Dict[str, Any], url: str) -> Optional[ExtractedContent]:
+    def _parse_response(self, data: Dict[str, Any], url: str) -> Optional[ExtractedContent]:
         """Parse Perplexity API response"""
         try:
             choices = data.get("choices", [])
@@ -118,7 +94,7 @@ class PerplexityAPI:
             if not content:
                 return None
             
-            # Extract metadata from response
+            # Extract metadata
             citations = data.get("citations", [])
             usage = data.get("usage", {})
             
@@ -134,7 +110,8 @@ class PerplexityAPI:
                 metadata={
                     "citations": citations,
                     "usage": usage,
-                    "extraction_method": "perplexity_api"
+                    "extraction_method": "perplexity_api",
+                    "prompt_type": self.prompt_type
                 },
                 word_count=len(summary.split()),
                 extraction_confidence=self._calculate_confidence(summary, citations)
@@ -146,15 +123,14 @@ class PerplexityAPI:
     
     def _clean_title(self, title: str) -> str:
         """Clean extracted title"""
-        # Remove common prefixes/suffixes
         prefixes = ["Title:", "# ", "## "]
         for prefix in prefixes:
             if title.startswith(prefix):
                 title = title[len(prefix):].strip()
         
-        return title[:200]  # Limit length
+        return title[:200]
     
-    def _calculate_confidence(self, content: str, citations: List) -> float:
+    def _calculate_confidence(self, content: str, citations: list) -> float:
         """Calculate extraction confidence score"""
         base_score = 0.5
         

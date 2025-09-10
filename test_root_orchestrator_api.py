@@ -330,8 +330,7 @@ async def main():
     print(f"API Prefix: {API_PREFIX}")
     
     # Check environment
-    use_mock = os.getenv("AGENT_SERVICE_USE_MOCK_DATA", "true").lower() == "true"
-    print(f"Mock Mode: {'Enabled' if use_mock else 'Disabled'}")
+    print("Production Mode: Enabled")
     
     try:
         # Run main API tests

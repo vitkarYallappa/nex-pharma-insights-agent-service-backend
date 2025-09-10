@@ -1,5 +1,5 @@
 """
-Database module with real and mock implementations.
+Database module with real DynamoDB implementation.
 """
 
 from .connection import DatabaseConnection

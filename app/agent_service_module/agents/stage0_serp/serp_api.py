@@ -42,7 +42,7 @@ class SerpAPI:
     
     def _build_params(self, request: SerpRequest) -> Dict[str, Any]:
         """Build search parameters"""
-        return {
+        params = {
             "q": request.query,
             "api_key": self.api_key,
             "engine": request.engine,
@@ -51,6 +51,35 @@ class SerpAPI:
             "gl": request.country,
             "format": "json"
         }
+        
+        # Add date filtering if specified
+        if request.date_filter:
+            params["tbs"] = f"qdr:{request.date_filter}"
+        elif request.start_date and request.end_date:
+            # Custom date range (Google format: M/DD/YYYY)
+            start_formatted = self._format_date_for_google(request.start_date)
+            end_formatted = self._format_date_for_google(request.end_date)
+            params["tbs"] = f"cdr:1,cd_min:{start_formatted},cd_max:{end_formatted}"
+        elif request.start_date:
+            # From start date to now
+            from datetime import datetime
+            start_formatted = self._format_date_for_google(request.start_date)
+            today = datetime.now().strftime("%-m/%d/%Y")  # M/DD/YYYY format
+            params["tbs"] = f"cdr:1,cd_min:{start_formatted},cd_max:{today}"
+        
+        return params
+    
+    def _format_date_for_google(self, date_str: str) -> str:
+        """Convert YYYY-MM-DD to M/DD/YYYY format for Google"""
+        try:
+            from datetime import datetime
+            # Parse YYYY-MM-DD format
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            # Return in M/DD/YYYY format (no leading zeros for month)
+            return date_obj.strftime("%-m/%d/%Y")
+        except:
+            # If parsing fails, return as-is
+            return date_str
     
     def _parse_response(self, data: Dict[str, Any], request: SerpRequest) -> SerpResponse:
         """Parse SERP API response"""

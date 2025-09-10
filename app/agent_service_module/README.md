@@ -1,228 +1,232 @@
 # Agent Service Module
 
-A modular agent service system with environment-based configuration and factory pattern for seamless switching between real and mock implementations.
+A modular agent service system with production-ready configuration and service factory pattern for real API implementations.
 
-## 🏗️ Architecture
+## 📁 Project Structure
 
 ```
 agent_service_module/
-├── config/                 # Configuration management
-│   ├── settings.py         # Main configuration
-│   ├── environments.py     # Environment-specific configs
-│   ├── service_factory.py  # Service factory for DI
-│   └── mock_factory.py     # Mock service factory
-├── agents/                 # Agent implementations
-│   ├── stage0_serp/        # SERP search agent
-│   ├── stage0_perplexity/  # Perplexity search agent
-│   ├── stage0_orchestrator/# Orchestration agent
-│   ├── agent1_deduplication/# Content deduplication
-│   ├── agent2_relevance/   # Relevance scoring
-│   ├── agent3_insights/    # Insight generation
-│   └── agent4_implications/# Impact analysis
+├── agents/                 # Individual agent implementations
+│   ├── agent1_deduplication/
+│   ├── agent2_relevance/
+│   ├── agent3_insights/
+│   ├── agent4_implications/
+│   ├── stage0_orchestrator/
+│   ├── stage0_perplexity/
+│   └── stage0_serp/
+├── config/
+│   ├── settings.py         # Environment configuration
+│   └── service_factory.py  # Production service factory
 ├── shared/                 # Shared components
-│   ├── database/           # Database clients & mocks
-│   ├── storage/            # Storage clients & mocks
-│   ├── models/             # Common data models
-│   └── utils/              # Utilities & exceptions
-└── environments/           # Environment configs
-    ├── .env.local          # Local development
-    ├── .env.dev            # Development
-    ├── .env.staging        # Staging
-    ├── .env.prod           # Production
-    └── .env.mock           # Testing/Mock
+│   ├── database/           # Database clients
+│   ├── storage/            # Storage clients
+│   └── utils/              # Utilities
+└── services/               # Core services
 ```
 
-## 🚀 Key Features
+## 🚀 Quick Start
 
-### 1. **Environment-Based Configuration**
-- Single environment variable controls entire system behavior
-- Seamless switching between local/dev/staging/prod/mock
-- No code changes required for environment switching
+### Environment Setup
 
-### 2. **Factory Pattern Implementation**
-- Automatic injection of real/mock implementations
-- Clean separation of concerns
-- Easy testing and development
-
-### 3. **Modular Agent Architecture**
-- Each agent is completely self-contained
-- Consistent API across all agents
-- Easy to add new agents or modify existing ones
-
-### 4. **Complete API Abstraction**
-- Real and mock implementations for every external service
-- Consistent interfaces across all implementations
-- Perfect for testing and development
-
-## 🛠️ Usage
-
-### Environment Switching
+Create a `.env` file with your configuration:
 
 ```bash
-# Local development with real APIs
-export ENVIRONMENT=local
-python main.py
+# API Keys
+OPENAI_API_KEY=your_openai_key
+PERPLEXITY_API_KEY=your_perplexity_key
+SERP_API_KEY=your_serp_key
 
-# Mock everything for testing
-export ENVIRONMENT=mock
-python main.py
+# AWS Configuration
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_aws_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret
 
-# Production deployment
-export ENVIRONMENT=prod
-python main.py
+# Storage (MinIO for development, S3 for production)
+STORAGE_TYPE=minio
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+
+# Database
+DYNAMODB_ENDPOINT=http://localhost:8000  # Local DynamoDB
 ```
 
-### Using Agents in Code
+### Basic Usage
 
 ```python
-from app.agent_service_module.agents.agent1_deduplication.service import Agent1DeduplicationService
-from app.agent_service_module.agents.agent1_deduplication.models import Agent1DeduplicationRequest
+from app.agent_service_module.config.service_factory import ServiceFactory
 
-# Create service (automatically uses correct implementation based on environment)
-service = Agent1DeduplicationService()
+# Get service instances
+perplexity = ServiceFactory.get_perplexity_client()
+serp = ServiceFactory.get_serp_client()
+storage = ServiceFactory.get_storage_client()
 
-# Create request
-request = Agent1DeduplicationRequest(
-    request_id="example-001",
-    content="Content to process"
-)
-
-# Process (uses real or mock APIs based on environment)
-response = await service.process(request)
-```
-
-### Configuration Management
-
-```python
-from app.agent_service_module.config.settings import settings
-
-# Access configuration
-print(f"Environment: {settings.ENVIRONMENT}")
-print(f"Using mocks: {settings.USE_MOCK_APIS}")
-print(f"Storage type: {settings.STORAGE_TYPE}")
+# Process market intelligence request
+response = await perplexity.search("semaglutide market analysis")
 ```
 
 ## 🔧 Configuration
 
 ### Environment Variables
 
-| Variable | Description | Values |
+| Variable | Description | Example |
 |----------|-------------|---------|
-| `ENVIRONMENT` | Current environment | `local`, `dev`, `staging`, `prod`, `mock` |
-| `USE_MOCK_APIS` | Use mock API implementations | `true`, `false` |
-| `USE_MOCK_STORAGE` | Use mock storage | `true`, `false` |
-| `USE_MOCK_DATABASE` | Use mock database | `true`, `false` |
+| `OPENAI_API_KEY` | OpenAI API key | `sk-...` |
+| `PERPLEXITY_API_KEY` | Perplexity API key | `pplx-...` |
+| `SERP_API_KEY` | SERP API key | `your_key` |
+| `AWS_REGION` | AWS region | `us-east-1` |
+| `STORAGE_TYPE` | Storage backend | `minio`, `s3` |
+| `DYNAMODB_ENDPOINT` | DynamoDB endpoint | `http://localhost:8000` |
 
-### API Configuration
+### Service Factory
 
-```env
-# API Keys
-OPENAI_API_KEY=your_key_here
-PERPLEXITY_API_KEY=your_key_here
-SERP_API_KEY=your_key_here
+The service factory provides production-ready implementations:
 
-# AWS Configuration
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your_key_here
-AWS_SECRET_ACCESS_KEY=your_secret_here
+```python
+from app.agent_service_module.config.service_factory import ServiceFactory
+
+# All services use real API implementations
+openai_client = ServiceFactory.get_openai_client()
+bedrock_client = ServiceFactory.get_bedrock_client()
+perplexity_client = ServiceFactory.get_perplexity_client()
+serp_client = ServiceFactory.get_serp_client()
+storage_client = ServiceFactory.get_storage_client()
+database_client = ServiceFactory.get_database_client()
 ```
 
-### Storage Configuration
+## 🏗️ Architecture
 
-```env
-# Storage Type
-STORAGE_TYPE=minio  # or 's3'
+### Agent System
+- **Stage 0**: Data collection (SERP, Perplexity, Orchestrator)
+- **Agent 1**: Deduplication and similarity analysis
+- **Agent 2**: Relevance scoring and classification
+- **Agent 3**: Insight generation and analysis
+- **Agent 4**: Implications and impact assessment
 
-# Minio (Local)
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
+### Shared Components
+- **Database**: DynamoDB client with connection management
+- **Storage**: S3/MinIO client with unified interface
+- **Utils**: Logging, validation, text processing utilities
 
-# S3 (Production)
-S3_BUCKET_NAME=agent-content-bucket
+## 📊 Usage Examples
+
+### Market Intelligence Workflow
+
+```python
+from app.agent_service_module.services.market_intelligence_service import MarketIntelligenceService
+
+# Initialize service
+service = MarketIntelligenceService()
+
+# Process market intelligence request
+request = {
+    "query": "semaglutide market trends",
+    "domains": ["reuters.com", "bloomberg.com", "fda.gov"],
+    "analysis_depth": "comprehensive"
+}
+
+result = await service.process_request(request)
 ```
+
+### Individual Agent Usage
+
+```python
+# Stage 0: URL Discovery
+from app.agent_service_module.agents.stage0_serp.service import SerpService
+serp_service = SerpService()
+urls = await serp_service.discover_urls("semaglutide news")
+
+# Stage 0: Content Extraction  
+from app.agent_service_module.agents.stage0_perplexity.service import PerplexityService
+perplexity_service = PerplexityService()
+content = await perplexity_service.extract_content(urls)
+
+# Agent 1: Deduplication
+from app.agent_service_module.agents.agent1_deduplication.service import DeduplicationService
+dedup_service = DeduplicationService()
+unique_content = await dedup_service.deduplicate(content)
+```
+
+## 🔒 Security
+
+### API Key Management
+- Store API keys in environment variables
+- Use secure key management services in production
+- Rotate keys regularly
+- Monitor API usage
+
+### Access Control
+- Configure IAM roles for AWS services
+- Use least privilege principle
+- Enable logging and monitoring
+- Set up billing alerts
+
+## 🚀 Deployment
+
+### Development
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up local services (MinIO, DynamoDB)
+docker-compose up -d
+
+# Run tests
+python -m pytest tests/
+```
+
+### Production
+```bash
+# Set production environment variables
+export STORAGE_TYPE=s3
+export S3_BUCKET_NAME=your-production-bucket
+# Remove DYNAMODB_ENDPOINT for AWS DynamoDB
+
+# Deploy to your platform
+# Configure monitoring and logging
+# Set up auto-scaling
+```
+
+## 📈 Monitoring
+
+### Metrics to Track
+- API response times
+- Error rates
+- API costs
+- Storage usage
+- Database performance
+
+### Logging
+All services include structured logging with:
+- Request/response tracking
+- Error details
+- Performance metrics
+- Cost tracking
 
 ## 🧪 Testing
 
-The system includes comprehensive mock implementations for all external services:
+```bash
+# Run unit tests
+python -m pytest tests/unit/
 
-```python
-# Set mock environment
-import os
-os.environ['ENVIRONMENT'] = 'mock'
+# Run integration tests
+python -m pytest tests/integration/
 
-# All services now use mocks automatically
-service = Agent1DeduplicationService()
-response = await service.process(request)  # Uses mocks
+# Run end-to-end tests
+python test_root_orchestrator_api.py
 ```
 
-## 📦 Agent Structure
+## 📚 Documentation
 
-Each agent follows a consistent structure:
+- [Agent Service Guide](../docs/agent_service.md)
+- [API Configuration](../docs/REAL_API_CONFIGURATION.md)
+- [DynamoDB Tables](../docs/DYNAMODB_TABLE_SPECIFICATIONS.md)
+- [Root Orchestrator Guide](../docs/ROOT_ORCHESTRATOR_DEVELOPER_GUIDE.md)
 
-```
-agent_name/
-├── __init__.py
-├── models.py              # Request/Response models
-├── service.py             # Main service logic
-├── *_api.py              # Real API implementations
-├── *_mock.py             # Mock API implementations
-├── *_response.py         # Response models
-├── storage.py            # Storage operations
-├── database.py           # Database operations
-└── [specialized files]   # Agent-specific components
-```
+## 🤝 Contributing
 
-## 🔄 Adding New Agents
-
-1. Create agent directory under `agents/`
-2. Implement required files following the pattern
-3. Add factory methods in `service_factory.py` and `mock_factory.py`
-4. Update `agents/__init__.py` to export the service
-
-## 🌍 Environment Configurations
-
-### Local Development
-- Uses local Minio for storage
-- Uses local DynamoDB
-- Real API calls (with your keys)
-
-### Mock/Testing
-- All services mocked
-- No external dependencies
-- Perfect for CI/CD and testing
-
-### Production
-- Uses AWS S3 for storage
-- Uses AWS DynamoDB
-- Real API calls with production keys
-
-## 🚦 Getting Started
-
-1. **Set up environment:**
-   ```bash
-   export ENVIRONMENT=local
-   ```
-
-2. **Configure API keys in environment file:**
-   ```bash
-   cp app/agent_service_module/environments/.env.local .env.local
-   # Edit .env.local with your API keys
-   ```
-
-3. **Run example:**
-   ```bash
-   python app/agent_service_module/example_usage.py
-   ```
-
-## 🎯 Benefits
-
-- **Single Point of Change**: Switch entire system with one variable
-- **No Code Changes**: Same code works in all environments
-- **Easy Testing**: Mock everything with one setting
-- **Gradual Migration**: Can mock specific services while keeping others real
-- **Environment Isolation**: Clear separation between environments
-- **Secret Management**: Environment-specific secrets
-- **Dependency Injection**: Clean separation of concerns
-
-This architecture provides maximum flexibility with minimal code changes when switching between environments! 
+1. Follow the existing code structure
+2. Add tests for new features
+3. Update documentation
+4. Ensure production readiness
+5. Test with real APIs before deployment 

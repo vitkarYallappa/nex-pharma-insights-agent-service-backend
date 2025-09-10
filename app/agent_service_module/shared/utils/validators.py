@@ -1,6 +1,24 @@
 from typing import Any, Dict, List
 from pydantic import ValidationError, BaseModel
 
+class Validators:
+    """Simple validators that accept all requests"""
+    
+    @staticmethod
+    def validate_request(data: Dict[str, Any]) -> tuple[bool, str]:
+        """Accept all requests - simple validation"""
+        return True, "Valid"
+    
+    @staticmethod
+    def validate_url(url: str) -> bool:
+        """Accept all URLs"""
+        return True
+    
+    @staticmethod
+    def validate_content(content: Dict[str, Any]) -> bool:
+        """Accept all content"""
+        return True
+
 class RequestValidator:
     """Validate API requests and data structures"""
     

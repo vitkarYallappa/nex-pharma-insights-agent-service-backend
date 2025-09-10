@@ -1,24 +1,9 @@
 import os
-from enum import Enum
 from typing import Dict, Any, Optional
-from pydantic import BaseSettings, Field
-
-class Environment(str, Enum):
-    LOCAL = "local"
-    DEV = "dev"
-    STAGING = "staging"
-    PROD = "prod"
-    MOCK = "mock"
+from pydantic_settings import BaseSettings
+from pydantic import Field
 
 class Settings(BaseSettings):
-    # Environment
-    ENVIRONMENT: Environment = Field(default=Environment.LOCAL)
-    
-    # Service Modes
-    USE_MOCK_APIS: bool = Field(default=False)
-    USE_MOCK_STORAGE: bool = Field(default=False)
-    USE_MOCK_DATABASE: bool = Field(default=False)
-    
     # API Configurations
     OPENAI_API_KEY: Optional[str] = Field(default=None)
     OPENAI_MODEL: str = Field(default="gpt-4")
@@ -42,18 +27,10 @@ class Settings(BaseSettings):
     DYNAMODB_ENDPOINT: Optional[str] = Field(default="http://localhost:8000")  # Local DynamoDB
     DYNAMODB_REGION: str = Field(default="us-east-1")
     
-    def is_local(self) -> bool:
-        return self.ENVIRONMENT == Environment.LOCAL
-        
-    def is_production(self) -> bool:
-        return self.ENVIRONMENT == Environment.PROD
-        
-    def should_use_mocks(self) -> bool:
-        return self.ENVIRONMENT == Environment.MOCK
-    
     class Config:
-        env_file = f".env.{os.getenv('ENVIRONMENT', 'local')}"
+        env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # Ignore extra environment variables
 
 # Global settings instance
 settings = Settings() 

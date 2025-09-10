@@ -1,7 +1,6 @@
 from typing import Union, Optional, Dict
 from ...config.service_factory import ServiceFactory
 from .s3_client import S3Client
-from .s3_mock import S3Mock
 
 class BaseStorage:
     """Base storage manager using factory pattern."""
@@ -10,8 +9,8 @@ class BaseStorage:
         self._client = None
     
     @property
-    def client(self) -> Union[S3Client, S3Mock]:
-        """Get storage client (real or mock based on configuration)."""
+    def client(self) -> S3Client:
+        """Get storage client."""
         if self._client is None:
             self._client = ServiceFactory.get_storage_client()
         return self._client

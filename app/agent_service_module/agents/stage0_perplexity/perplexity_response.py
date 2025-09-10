@@ -1,44 +1,15 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from datetime import datetime
-from .models import PerplexityResponse, ExtractedContent
+from .models import ExtractedContent
 from ...shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 class PerplexityResponseHandler:
-    """Process and validate Perplexity API responses"""
+    """Process and validate Perplexity API responses for single URLs"""
     
     @staticmethod
-    def process_batch_response(responses: List[Dict[str, Any]], request_id: str) -> PerplexityResponse:
-        """Process batch extraction responses"""
-        try:
-            extracted_content = []
-            successful = 0
-            failed = 0
-            
-            for response_data in responses:
-                processed = PerplexityResponseHandler._process_single_response(response_data)
-                if processed:
-                    extracted_content.append(processed)
-                    successful += 1
-                else:
-                    failed += 1
-            
-            return PerplexityResponse(
-                request_id=request_id,
-                total_urls=len(responses),
-                successful_extractions=successful,
-                failed_extractions=failed,
-                extracted_content=extracted_content,
-                processing_metadata=PerplexityResponseHandler._extract_batch_metadata(responses)
-            )
-            
-        except Exception as e:
-            logger.error(f"Batch response processing error: {str(e)}")
-            raise ValueError(f"Invalid batch response: {str(e)}")
-    
-    @staticmethod
-    def _process_single_response(response: Dict[str, Any]) -> Optional[ExtractedContent]:
+    def process_single_response(response: Dict[str, Any], url: str) -> Optional[ExtractedContent]:
         """Process single extraction response"""
         try:
             choices = response.get("choices", [])
@@ -49,11 +20,6 @@ class PerplexityResponseHandler:
             content = message.get("content", "")
             
             if not content or len(content.strip()) < 50:
-                return None
-            
-            # Extract URL from metadata or response
-            url = response.get("url", "")
-            if not url:
                 return None
             
             # Parse structured content
@@ -203,24 +169,4 @@ class PerplexityResponseHandler:
             "model": response.get("model", ""),
             "extraction_timestamp": datetime.utcnow().isoformat(),
             "response_id": response.get("id", "")
-        }
-    
-    @staticmethod
-    def _extract_batch_metadata(responses: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Extract metadata from batch responses"""
-        total_tokens = sum(
-            resp.get("usage", {}).get("total_tokens", 0) 
-            for resp in responses
-        )
-        
-        total_citations = sum(
-            len(resp.get("citations", [])) 
-            for resp in responses
-        )
-        
-        return {
-            "batch_size": len(responses),
-            "total_tokens_used": total_tokens,
-            "total_citations": total_citations,
-            "processed_at": datetime.utcnow().isoformat()
         }
