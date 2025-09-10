@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from datetime import datetime
 from enum import Enum
 
@@ -12,6 +12,33 @@ class PipelineStatus(str, Enum):
     FAILED = "failed"
     PARTIAL_SUCCESS = "partial_success"
 
+class DateRangeConfig(BaseModel):
+    """Date range configuration for searches"""
+    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
+    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
+    
+    @validator('start_date', 'end_date')
+    def validate_date_format(cls, v):
+        try:
+            datetime.strptime(v, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError("Date must be in YYYY-MM-DD format")
+        return v
+
+
+class SourceConfig(BaseModel):
+    """Source configuration for data extraction"""
+    name: str = Field(..., description="Source name")
+    type: str = Field(..., description="Source type (clinical, academic, government, etc.)")
+    url: str = Field(..., description="Source URL")
+    
+    @validator('url')
+    def validate_url(cls, v):
+        if not v.startswith(('http://', 'https://')):
+            raise ValueError("URL must start with http:// or https://")
+        return v
+
+
 class IngestionRequest(BaseModel):
     """Complete ingestion pipeline request"""
     query: str = Field(..., description="Search query")
@@ -21,6 +48,12 @@ class IngestionRequest(BaseModel):
     search_engines: List[str] = Field(default=["google"], description="Search engines to use")
     filters: Dict[str, Any] = Field(default_factory=dict, description="Search filters")
     
+    # New fields for SERP-Perplexity workflow
+    keywords: Optional[List[str]] = Field(default=None, description="Search keywords for SERP-Perplexity workflow")
+    sources: Optional[List[SourceConfig]] = Field(default=None, description="Sources for SERP-Perplexity workflow")
+    date_range: Optional[DateRangeConfig] = Field(default=None, description="Date range for searches")
+    quality_threshold: float = Field(default=0.5, ge=0.0, le=1.0, description="Quality threshold for content")
+    
     def generate_request_id(self) -> str:
         """Generate unique request ID if not provided"""
         if not self.request_id:
@@ -28,6 +61,26 @@ class IngestionRequest(BaseModel):
             query_hash = abs(hash(self.query)) % 10000
             self.request_id = f"ing_{timestamp}_{query_hash}"
         return self.request_id
+    
+    @validator('sources', pre=True)
+    def validate_sources(cls, v):
+        """Convert dict sources to SourceConfig objects if needed"""
+        if not v:
+            return v
+        
+        result = []
+        for source in v:
+            if isinstance(source, dict):
+                result.append(SourceConfig(**source))
+            elif isinstance(source, SourceConfig):
+                result.append(source)
+            else:
+                raise ValueError("Sources must be dictionaries or SourceConfig objects")
+        return result
+    
+    def is_serp_perplexity_workflow(self) -> bool:
+        """Check if this request should use SERP-Perplexity workflow"""
+        return bool(self.keywords and self.sources)
 
 class PipelineState(BaseModel):
     """Pipeline execution state tracking"""

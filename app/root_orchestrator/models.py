@@ -90,6 +90,34 @@ class RequestResults(BaseModel):
         }
 
 
+class DateRangeConfig(BaseModel):
+    """Date range configuration for searches"""
+    start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
+    end_date: str = Field(..., description="End date in YYYY-MM-DD format")
+    
+    @validator('start_date', 'end_date')
+    def validate_date_format(cls, v):
+        from datetime import datetime
+        try:
+            datetime.strptime(v, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError("Date must be in YYYY-MM-DD format")
+        return v
+
+
+class SourceConfig(BaseModel):
+    """Source configuration for data extraction"""
+    name: str = Field(..., description="Source name")
+    type: str = Field(..., description="Source type (clinical, academic, government, etc.)")
+    url: str = Field(..., description="Source URL")
+    
+    @validator('url')
+    def validate_url(cls, v):
+        if not v.startswith(('http://', 'https://')):
+            raise ValueError("URL must start with http:// or https://")
+        return v
+
+
 class MarketIntelligenceRequestConfig(BaseModel):
     """Configuration for market intelligence request"""
     keywords: List[str] = Field(
@@ -101,11 +129,11 @@ class MarketIntelligenceRequestConfig(BaseModel):
         min_items=1, 
         description="Search keywords"
     )
-    sources: List[Dict[str, Any]] = Field(
+    sources: List[SourceConfig] = Field(
         default=[
-            {"name": "FDA", "base_url": "https://www.fda.gov", "source_type": "government"},
-            {"name": "NIH", "base_url": "https://www.nih.gov", "source_type": "academic"},
-            {"name": "ClinicalTrials.gov", "base_url": "https://clinicaltrials.gov", "source_type": "clinical"}
+            SourceConfig(name="FDA", type="government", url="https://www.fda.gov"),
+            SourceConfig(name="NIH", type="academic", url="https://www.nih.gov"),
+            SourceConfig(name="ClinicalTrials.gov", type="clinical", url="https://clinicaltrials.gov")
         ],
         min_items=1, 
         description="Data sources configuration"
@@ -114,6 +142,10 @@ class MarketIntelligenceRequestConfig(BaseModel):
     quality_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="Quality threshold for content")
     batch_size: int = Field(default=5, ge=1, le=20, description="Processing batch size")
     max_retries: int = Field(default=2, ge=0, le=10, description="Maximum retry attempts")
+    
+    # New fields for SERP/Perplexity integration
+    search_query: Optional[str] = Field(default=None, description="Custom search query")
+    date_range: Optional[DateRangeConfig] = Field(default=None, description="Date range for searches")
     custom_params: Dict[str, Any] = Field(default_factory=dict, description="Custom parameters")
     
     @validator('extraction_mode')
@@ -122,6 +154,22 @@ class MarketIntelligenceRequestConfig(BaseModel):
         if v not in valid_modes:
             raise ValueError(f"extraction_mode must be one of {valid_modes}")
         return v
+    
+    @validator('sources', pre=True)
+    def validate_sources(cls, v):
+        """Convert dict sources to SourceConfig objects if needed"""
+        if not v:
+            return v
+        
+        result = []
+        for source in v:
+            if isinstance(source, dict):
+                result.append(SourceConfig(**source))
+            elif isinstance(source, SourceConfig):
+                result.append(source)
+            else:
+                raise ValueError("Sources must be dictionaries or SourceConfig objects")
+        return result
 
 
 class MarketIntelligenceRequest(BaseModel):

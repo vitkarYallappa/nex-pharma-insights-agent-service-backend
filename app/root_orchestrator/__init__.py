@@ -11,7 +11,10 @@ from .models import (
     Priority,
     MarketIntelligenceRequest,
     RequestProgress,
-    RequestResults
+    RequestResults,
+    DateRangeConfig,
+    SourceConfig,
+    MarketIntelligenceRequestConfig
 )
 
 try:
@@ -23,6 +26,9 @@ try:
         "MarketIntelligenceRequest",
         "RequestProgress",
         "RequestResults",
+        "DateRangeConfig",
+        "SourceConfig", 
+        "MarketIntelligenceRequestConfig",
         "RootOrchestratorService"
     ]
 except ImportError as e:
@@ -33,5 +39,8 @@ except ImportError as e:
         "Priority", 
         "MarketIntelligenceRequest",
         "RequestProgress",
-        "RequestResults"
+        "RequestResults",
+        "DateRangeConfig",
+        "SourceConfig", 
+        "MarketIntelligenceRequestConfig"
     ] 
