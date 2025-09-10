@@ -2,7 +2,7 @@ import logging
 import logging.handlers
 import sys
 import os
-from app.config.settings import settings
+from app.config.unified_settings import settings
 
 
 def setup_logging():

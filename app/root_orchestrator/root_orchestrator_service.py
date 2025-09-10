@@ -135,16 +135,23 @@ class RootOrchestratorService:
             StrategyError: If there's an error with the processing strategy
         """
         try:
+            logger.info(f"RootOrchestrator: Starting submit_request for {request.request_id}")
+            
             if not self._is_initialized:
+                logger.info(f"RootOrchestrator: Initializing service for {request.request_id}")
                 await self.initialize()
             
-            logger.info(f"Submitting request: {request.request_id}")
+            logger.info(f"RootOrchestrator: Service initialized, submitting request: {request.request_id}")
             
             # Get the appropriate strategy
+            logger.info(f"RootOrchestrator: Getting strategy for request: {request.request_id}")
             strategy = await self._get_strategy_for_request(request)
+            logger.info(f"RootOrchestrator: Got strategy {type(strategy).__name__} for request: {request.request_id}")
             
             # Submit to strategy
+            logger.info(f"RootOrchestrator: Calling strategy.submit_request for: {request.request_id}")
             success = await strategy.submit_request(request)
+            logger.info(f"RootOrchestrator: Strategy submit_request returned {success} for: {request.request_id}")
             
             if success:
                 logger.info(f"Request submitted successfully: {request.request_id}")
@@ -155,6 +162,8 @@ class RootOrchestratorService:
             
         except Exception as e:
             logger.error(f"Error submitting request {request.request_id}: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             raise StrategyError(f"Failed to submit request: {str(e)}", "root_orchestrator", request.request_id)
     
     async def get_request_status(self, request_id: str) -> Optional[MarketIntelligenceRequest]:

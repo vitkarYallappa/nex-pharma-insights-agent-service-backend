@@ -168,11 +168,17 @@ class TableProcessingStrategy(BaseProcessingStrategy):
             bool: True if submission was successful
         """
         try:
+            self.log_info(f"Starting submit_request for: {request.request_id}")
+            
             # Validate request
+            self.log_info(f"Validating request: {request.request_id}")
             validation_errors = self.validate_request(request)
             if validation_errors:
                 error_msg = f"Request validation failed: {', '.join(validation_errors)}"
+                self.log_error(error_msg)
                 raise RequestValidationError(error_msg, self.get_strategy_name(), validation_errors, request.request_id)
+            
+            self.log_info(f"Request validation passed for: {request.request_id}")
             
             # Set processing strategy
             request.processing_strategy = "table"
@@ -181,20 +187,27 @@ class TableProcessingStrategy(BaseProcessingStrategy):
             if request.status != RequestStatus.PENDING:
                 request.status = RequestStatus.PENDING
             
+            self.log_info(f"About to save request to database: {request.request_id}")
+            
             # Save to database
             success = await self._save_request_to_db(request)
+            
+            self.log_info(f"Database save result for {request.request_id}: {success}")
             
             if success:
                 self.log_info(f"Request submitted successfully: {request.request_id}")
                 return True
             else:
+                self.log_error(f"Database save returned False for request: {request.request_id}")
                 raise StrategyOperationError("Failed to save request to database", self.get_strategy_name(), request.request_id)
                 
         except (RequestValidationError, StrategyOperationError):
             raise
         except Exception as e:
             error_msg = self.format_error_message("submit_request", e, request.request_id)
-            self.log_error(error_msg)
+            self.log_error(f"Exception in submit_request: {error_msg}")
+            import traceback
+            self.log_error(f"Full traceback: {traceback.format_exc()}")
             raise StrategyOperationError(error_msg, self.get_strategy_name(), request.request_id)
     
     async def get_request_status(self, request_id: str) -> Optional[MarketIntelligenceRequest]:
@@ -594,20 +607,107 @@ class TableProcessingStrategy(BaseProcessingStrategy):
             bool: True if save was successful
         """
         try:
-            # Convert request to dictionary for storage
-            request_data = request.to_dict()
+            # Convert request to dictionary for storage with proper serialization
+            request_data = self._serialize_request_for_db(request)
+            
+            # Debug logging
+            self.log_info(f"Attempting to save request {request.request_id} to table {self.table_name}")
+            self.log_info(f"Request data keys: {list(request_data.keys())}")
             
             # Save to database
-            success = await self.db_client.save_item(self.table_name, request_data)
+            success = await self.db_client.put_item(self.table_name, request_data)
             
             if not success:
                 self.log_error(f"Database save returned False for request: {request.request_id}")
+            else:
+                self.log_info(f"Successfully saved request {request.request_id} to database")
             
             return success
             
         except Exception as e:
             self.log_error(f"Failed to save request {request.request_id} to database: {e}")
+            import traceback
+            self.log_error(f"Full traceback: {traceback.format_exc()}")
             return False
+    
+    def _serialize_request_for_db(self, request: MarketIntelligenceRequest) -> Dict[str, Any]:
+        """Serialize request for database storage with proper type conversion"""
+        from decimal import Decimal
+        
+        def convert_for_dynamodb(obj):
+            """Recursively convert values for DynamoDB compatibility"""
+            from datetime import datetime
+            
+            if isinstance(obj, float):
+                # Convert float to Decimal
+                return Decimal(str(obj))
+            elif isinstance(obj, datetime):
+                # Convert datetime to ISO 8601 string
+                return obj.isoformat()
+            elif isinstance(obj, dict):
+                return {key: convert_for_dynamodb(value) for key, value in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_for_dynamodb(item) for item in obj]
+            else:
+                return obj
+        
+        try:
+            # Get the basic dictionary
+            data = request.dict()
+            
+            # Convert datetime objects to ISO strings
+            for field in ['created_at', 'updated_at', 'started_at', 'completed_at']:
+                if field in data and data[field] is not None:
+                    if hasattr(data[field], 'isoformat'):
+                        data[field] = data[field].isoformat()
+            
+            # Convert enum values to their actual values (not string representations)
+            if 'status' in data and hasattr(data['status'], 'value'):
+                data['status'] = data['status'].value
+            if 'priority' in data and hasattr(data['priority'], 'value'):
+                data['priority'] = data['priority'].value
+            if 'processing_strategy' in data and hasattr(data['processing_strategy'], 'value'):
+                data['processing_strategy'] = data['processing_strategy'].value
+            if 'request_type' in data and hasattr(data['request_type'], 'value'):
+                data['request_type'] = data['request_type'].value
+            
+            # Ensure request_id is the primary key
+            if 'request_id' not in data or not data['request_id']:
+                data['request_id'] = request.request_id
+            
+            # Convert nested objects to JSON strings if needed
+            if 'config' in data and isinstance(data['config'], dict):
+                # Convert config sources if they're objects
+                if 'sources' in data['config']:
+                    sources = data['config']['sources']
+                    if sources and isinstance(sources[0], dict):
+                        # Already serialized
+                        pass
+                    else:
+                        # Convert objects to dicts
+                        data['config']['sources'] = [
+                            source.dict() if hasattr(source, 'dict') else source
+                            for source in sources
+                        ]
+            
+            # Convert all values for DynamoDB compatibility (floats to Decimal, datetime to ISO strings)
+            data = convert_for_dynamodb(data)
+            
+            return data
+            
+        except Exception as e:
+            self.log_error(f"Error serializing request {request.request_id}: {e}")
+            import traceback
+            self.log_error(f"Serialization traceback: {traceback.format_exc()}")
+            # Fallback to basic serialization
+            return {
+                'request_id': request.request_id,
+                'project_id': request.project_id,
+                'user_id': request.user_id,
+                'status': str(request.status),
+                'created_at': request.created_at.isoformat(),
+                'error': f"Serialization error: {str(e)}"
+            }
     
     async def get_pending_requests(self, limit: int = None) -> List[MarketIntelligenceRequest]:
         """

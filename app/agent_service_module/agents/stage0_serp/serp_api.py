@@ -1,9 +1,10 @@
 import asyncio
 import aiohttp
+import os
 from typing import Dict, Any, Optional, List
 from .models import SerpRequest, SerpResponse, SerpResult
 from .serp_query_builder import build_query, build_date_range_query
-from ...config.settings import settings
+from ....config.unified_settings import settings
 from ...shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -24,9 +25,84 @@ class SerpAPI:
     """Real SERP API client for web search with improved error handling and structure"""
     
     def __init__(self):
-        self.api_key = settings.SERP_API_KEY
+        # Multiple fallback strategies to get API key
+        self.api_key = self._get_api_key()
         self.base_url = "https://serpapi.com/search"
         self.session = None
+        
+        # Debug logging for API key
+        if not self.api_key:
+            logger.error("SERP_API_KEY is not set in any source")
+            logger.error(f"Settings SERP_API_KEY: {getattr(settings, 'SERP_API_KEY', 'ATTR_NOT_FOUND')}")
+            logger.error(f"Environment SERP_API_KEY: {os.getenv('SERP_API_KEY', 'ENV_NOT_FOUND')}")
+            logger.error(f"Direct .env file check: {self._check_env_file()}")
+            raise ValueError("SERP_API_KEY is required but not found in settings or environment")
+        else:
+            logger.info(f"SERP API initialized with key: {self.api_key[:10]}...")  # Show first 10 chars for debugging
+    
+    def _get_api_key(self) -> Optional[str]:
+        """Try multiple methods to get the API key"""
+        # Method 1: From settings
+        try:
+            if hasattr(settings, 'SERP_API_KEY') and settings.SERP_API_KEY:
+                logger.debug("API key found in settings")
+                return settings.SERP_API_KEY
+        except Exception as e:
+            logger.warning(f"Failed to get API key from settings: {e}")
+        
+        # Method 2: From environment variable
+        env_key = os.getenv('SERP_API_KEY')
+        if env_key:
+            logger.debug("API key found in environment")
+            return env_key
+        
+        # Method 3: Try to load from .env file directly
+        env_file_key = self._load_from_env_file()
+        if env_file_key:
+            logger.debug("API key found in .env file")
+            return env_file_key
+        
+        return None
+    
+    def _load_from_env_file(self) -> Optional[str]:
+        """Load API key directly from .env file as fallback"""
+        try:
+            import os
+            from pathlib import Path
+            
+            # Look for .env file in current directory and parent directories
+            current_dir = Path.cwd()
+            for path in [current_dir, current_dir.parent, current_dir.parent.parent]:
+                env_file = path / '.env'
+                if env_file.exists():
+                    logger.debug(f"Found .env file at: {env_file}")
+                    with open(env_file, 'r') as f:
+                        for line in f:
+                            line = line.strip()
+                            if line.startswith('SERP_API_KEY='):
+                                key = line.split('=', 1)[1].strip()
+                                if key:
+                                    return key
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to load from .env file: {e}")
+            return None
+    
+    def _check_env_file(self) -> str:
+        """Check if .env file exists and contains SERP_API_KEY"""
+        try:
+            from pathlib import Path
+            current_dir = Path.cwd()
+            for path in [current_dir, current_dir.parent, current_dir.parent.parent]:
+                env_file = path / '.env'
+                if env_file.exists():
+                    with open(env_file, 'r') as f:
+                        content = f.read()
+                        if 'SERP_API_KEY=' in content:
+                            return f"Found in {env_file}"
+            return "Not found in any .env file"
+        except Exception as e:
+            return f"Error checking .env file: {e}"
     
     async def __aenter__(self):
         # Create session with proper timeout and headers
@@ -38,8 +114,50 @@ class SerpAPI:
         if self.session:
             await self.session.close()
     
+    def build_serp_url(self, keywords: List[str], source: Dict[str, Any] = None, 
+                      date_filter: str = "cdr:1", additional_terms: str = None) -> str:
+        """
+        Build complete SERP API URL in the format:
+        https://serpapi.com/search.json?engine=google&q=("keyword") (site:domain.com)&tbs=cdr:1&api_key=xxx
+        
+        Args:
+            keywords: List of keywords
+            source: Single source dictionary with 'url' field
+            date_filter: Date filter (default: "cdr:1" for custom date range)
+            additional_terms: Additional search terms
+            
+        Returns:
+            Complete SERP API URL string
+        """
+        try:
+            # Convert single source to list for query builder
+            sources = [source] if source else None
+            
+            # Build the query using query builder
+            query_data = build_query(keywords, sources, date_filter, additional_terms)
+            
+            # Build URL parameters
+            params = {
+                "engine": "google",
+                "q": query_data['query'],
+                "tbs": date_filter,
+                "api_key": self.api_key
+            }
+            
+            # Build complete URL
+            import urllib.parse
+            query_string = urllib.parse.urlencode(params)
+            complete_url = f"{self.base_url}.json?{query_string}"
+            
+            logger.info(f"Generated SERP URL: {complete_url}")
+            return complete_url
+            
+        except Exception as e:
+            logger.error(f"URL building failed: {str(e)}")
+            raise Exception(f"Failed to build SERP URL: {str(e)}")
+
     async def search_with_query_builder(self, keywords: List[str], source: Dict[str, Any] = None, 
-                                       date_filter: str = None, additional_terms: str = None) -> SerpResponse:
+                                       date_filter: str = None, additional_terms: str = None):
         """
         Search using the query builder for optimized queries
         

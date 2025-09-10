@@ -1,19 +1,35 @@
 import boto3
 from typing import Optional, Dict, Any
 from botocore.exceptions import ClientError
-from ...config.settings import settings
+from ....config.unified_settings import settings
 
 class S3Client:
-    """Real S3 client implementation."""
+    """S3-compatible client implementation supporting both AWS S3 and MinIO."""
     
     def __init__(self):
-        self.session = boto3.Session(
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_REGION
-        )
-        self.s3 = self.session.client('s3')
+        # Configure based on storage type
+        if settings.STORAGE_TYPE == "minio":
+            # MinIO configuration
+            self.s3 = boto3.client(
+                's3',
+                endpoint_url=f'http://{settings.MINIO_ENDPOINT}',
+                aws_access_key_id=settings.MINIO_ACCESS_KEY,
+                aws_secret_access_key=settings.MINIO_SECRET_KEY,
+                region_name=settings.AWS_REGION
+            )
+            print(f"Initialized MinIO client: {settings.MINIO_ENDPOINT}")
+        else:
+            # AWS S3 configuration
+            self.session = boto3.Session(
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_REGION
+            )
+            self.s3 = self.session.client('s3')
+            print(f"Initialized AWS S3 client: {settings.AWS_REGION}")
+        
         self.bucket_name = settings.S3_BUCKET_NAME
+        self.storage_type = settings.STORAGE_TYPE
     
     async def upload_file(self, file_path: str, object_key: str, 
                          metadata: Optional[Dict[str, str]] = None) -> bool:
@@ -24,10 +40,10 @@ class S3Client:
                 extra_args['Metadata'] = metadata
             
             self.s3.upload_file(file_path, self.bucket_name, object_key, ExtraArgs=extra_args)
-            print(f"File uploaded to S3: {object_key}")
+            print(f"File uploaded to {self.storage_type}: {object_key}")
             return True
         except ClientError as e:
-            print(f"Error uploading file to S3: {e}")
+            print(f"Error uploading file to {self.storage_type}: {e}")
             return False
     
     async def upload_content(self, content: bytes, object_key: str,
@@ -45,10 +61,10 @@ class S3Client:
                 Body=content,
                 **extra_args
             )
-            print(f"Content uploaded to S3: {object_key}")
+            print(f"Content uploaded to {self.storage_type}: {object_key}")
             return True
         except ClientError as e:
-            print(f"Error uploading content to S3: {e}")
+            print(f"Error uploading content to {self.storage_type}: {e}")
             return False
     
     async def download_file(self, object_key: str, file_path: str) -> bool:

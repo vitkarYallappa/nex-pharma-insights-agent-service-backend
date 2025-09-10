@@ -4,9 +4,9 @@ Contains all specialized agents for different processing stages.
 """
 
 # Stage 0 agents
-from .stage0_serp.service import Stage0SerpService
-from .stage0_perplexity.service import Stage0PerplexityService
-from .stage0_orchestrator.service import Stage0OrchestratorService
+from .stage0_serp.service import SerpService as Stage0SerpService
+from .stage0_perplexity.service import PerplexityService as Stage0PerplexityService
+from .stage0_orchestrator.service import OrchestratorService as Stage0OrchestratorService
 
 # Processing agents
 from .agent1_deduplication.service import Agent1DeduplicationService

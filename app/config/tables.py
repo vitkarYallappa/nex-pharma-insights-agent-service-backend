@@ -23,6 +23,16 @@ class TableNames:
     def get_content_repository_table(environment: str) -> str:
         """Get content repository table name for environment"""
         return f"content_repository-{environment}"
+    
+    @staticmethod
+    def get_agent3_insights_table(environment: str) -> str:
+        """Get Agent 3 insights table name for environment"""
+        return f"agent3_insights_results-{environment}"
+    
+    @staticmethod
+    def get_content_insights_table(environment: str) -> str:
+        """Get content insights table name for environment"""
+        return f"content_insights-{environment}"
 
 
 class TableConfig:
@@ -47,13 +57,23 @@ class TableConfig:
     def content_repository_table(self) -> str:
         return TableNames.get_content_repository_table(self.environment)
     
+    @property
+    def agent3_insights_table(self) -> str:
+        return TableNames.get_agent3_insights_table(self.environment)
+    
+    @property
+    def content_insights_table(self) -> str:
+        return TableNames.get_content_insights_table(self.environment)
+    
     def get_all_tables(self) -> Dict[str, str]:
         """Get all table names as a dictionary"""
         return {
             "users": self.users_table,
             "projects": self.projects_table,
             "requests": self.requests_table,
-            "content_repository": self.content_repository_table
+            "content_repository": self.content_repository_table,
+            "agent3_insights": self.agent3_insights_table,
+            "content_insights": self.content_insights_table
         }
     
     def get_table_configs(self) -> Dict[str, Dict[str, Any]]:
@@ -92,6 +112,39 @@ class TableConfig:
                 ],
                 "AttributeDefinitions": [
                     {"AttributeName": "id", "AttributeType": "S"}
+                ],
+                "BillingMode": "PAY_PER_REQUEST"
+            },
+            self.agent3_insights_table: {
+                "KeySchema": [
+                    {"AttributeName": "request_id", "KeyType": "HASH"},
+                    {"AttributeName": "insight_id", "KeyType": "RANGE"}
+                ],
+                "AttributeDefinitions": [
+                    {"AttributeName": "request_id", "AttributeType": "S"},
+                    {"AttributeName": "insight_id", "AttributeType": "S"},
+                    {"AttributeName": "status", "AttributeType": "S"},
+                    {"AttributeName": "timestamp", "AttributeType": "S"}
+                ],
+                "GlobalSecondaryIndexes": [
+                    {
+                        "IndexName": "status-timestamp-index",
+                        "KeySchema": [
+                            {"AttributeName": "status", "KeyType": "HASH"},
+                            {"AttributeName": "timestamp", "KeyType": "RANGE"}
+                        ],
+                        "Projection": {"ProjectionType": "ALL"},
+                        "BillingMode": "PAY_PER_REQUEST"
+                    }
+                ],
+                "BillingMode": "PAY_PER_REQUEST"
+            },
+            self.content_insights_table: {
+                "KeySchema": [
+                    {"AttributeName": "pk", "KeyType": "HASH"}
+                ],
+                "AttributeDefinitions": [
+                    {"AttributeName": "pk", "AttributeType": "S"}
                 ],
                 "BillingMode": "PAY_PER_REQUEST"
             }

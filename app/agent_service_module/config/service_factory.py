@@ -1,5 +1,5 @@
 from typing import Union, Any
-from .settings import settings
+from ...config.unified_settings import settings
 
 class ServiceFactory:
     @staticmethod
@@ -19,17 +19,24 @@ class ServiceFactory:
     
     @staticmethod
     def get_serp_client():
-        from ..agents.stage0_serp.serp_api import SerpAPI
-        return SerpAPI()
+        try:
+            from ..agents.stage0_serp.serp_api import SerpAPI
+            return SerpAPI()
+        except Exception as e:
+            # Enhanced error reporting for SERP client creation
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create SERP client: {e}")
+            logger.error(f"Settings SERP_API_KEY available: {bool(getattr(settings, 'SERP_API_KEY', None))}")
+            
+            # Re-raise with more context
+            raise Exception(f"Service initialization failed: {str(e)}")
     
     @staticmethod
     def get_storage_client():
-        if settings.STORAGE_TYPE == "minio":
-            from ..shared.storage.minio_client import MinioClient
-            return MinioClient()
-        else:
-            from ..shared.storage.s3_client import S3Client
-            return S3Client()
+        # Use S3Client for both S3 and MinIO (MinIO is S3-compatible)
+        from ..shared.storage.s3_client import S3Client
+        return S3Client()
     
     @staticmethod
     def get_database_client():

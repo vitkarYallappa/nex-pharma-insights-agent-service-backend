@@ -4,7 +4,7 @@ FastAPI Agent Service Startup Script
 """
 
 import uvicorn
-from app.config.settings import settings
+from app.config.unified_settings import settings
 
 if __name__ == "__main__":
     print(f"🚀 Starting {settings.PROJECT_NAME} v{settings.VERSION}")

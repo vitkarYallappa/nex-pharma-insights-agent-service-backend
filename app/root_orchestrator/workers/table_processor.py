@@ -197,15 +197,44 @@ class TableProcessor:
                 self.max_processing_time
             )
             
-            # Save results
+            # Save Stage0 results
             await self.strategy.save_request_results(request.request_id, result)
             
-            # Update status to COMPLETED
-            await self.strategy.update_request_status(
-                request.request_id,
-                RequestStatus.COMPLETED,
-                "Processing completed successfully"
-            )
+            # Check if we should start Stage1 processing
+            if hasattr(request.config, 'sources') and request.config.sources:
+                logger.info(f"Starting Stage1 processing for request: {request.request_id}")
+                
+                # Update status to EXECUTING (Stage1)
+                await self.strategy.update_request_status(
+                    request.request_id,
+                    RequestStatus.EXECUTING,
+                    "Starting Stage1 agent processing"
+                )
+                
+                # Start Stage1 processing
+                stage1_result = await self._start_stage1_processing(request, result)
+                
+                # Save final results (Stage0 + Stage1)
+                combined_results = {
+                    "stage0_results": result,
+                    "stage1_results": stage1_result,
+                    "processing_stages": ["stage0_serp_perplexity", "stage1_agents"]
+                }
+                await self.strategy.save_request_results(request.request_id, combined_results)
+                
+                # Update status to COMPLETED
+                await self.strategy.update_request_status(
+                    request.request_id,
+                    RequestStatus.COMPLETED,
+                    "Stage0 and Stage1 processing completed successfully"
+                )
+            else:
+                # Original workflow - just Stage0
+                await self.strategy.update_request_status(
+                    request.request_id,
+                    RequestStatus.COMPLETED,
+                    "Processing completed successfully"
+                )
             
             # Update final progress
             await self.strategy.update_request_progress(
@@ -267,6 +296,40 @@ class TableProcessor:
             asyncio.TimeoutError: If timeout is exceeded
         """
         return await asyncio.wait_for(coro, timeout=timeout_seconds)
+    
+    async def _start_stage1_processing(self, request: MarketIntelligenceRequest, stage0_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Start Stage1 processing with the 4 agents"""
+        try:
+            # Import Stage1 orchestrator
+            from ...agent_service_module.agents.stage1_orchestrator.service import Stage1OrchestratorService
+            
+            # Extract S3 path from Stage0 results (assuming it's stored there)
+            s3_summary_path = stage0_result.get('s3_summary_path', f"s3://bucket/summaries/{request.request_id}/summary.json")
+            
+            # Create Stage1 orchestrator
+            stage1_service = Stage1OrchestratorService()
+            
+            # Start Stage1 processing
+            stage1_response = await stage1_service.process_from_stage0_completion(
+                request_id=request.request_id,
+                s3_summary_path=s3_summary_path,
+                stage0_results=stage0_result
+            )
+            
+            logger.info(f"Stage1 processing completed for request: {request.request_id}")
+            logger.info(f"Agents completed: {stage1_response.agents_completed}/4")
+            logger.info(f"Success rate: {stage1_response.overall_success_rate}%")
+            
+            return stage1_response.dict()
+            
+        except Exception as e:
+            logger.error(f"Stage1 processing failed for request {request.request_id}: {str(e)}")
+            return {
+                'status': 'failed',
+                'error': str(e),
+                'agents_completed': 0,
+                'overall_success_rate': 0.0
+            }
     
     async def _handle_processing_error(self, request: MarketIntelligenceRequest, error: Exception):
         """

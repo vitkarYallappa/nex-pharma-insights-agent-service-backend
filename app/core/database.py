@@ -1,6 +1,6 @@
 import boto3
 from botocore.exceptions import ClientError
-from app.config.settings import settings
+from app.config.unified_settings import settings
 import logging
 
 logger = logging.getLogger(__name__)

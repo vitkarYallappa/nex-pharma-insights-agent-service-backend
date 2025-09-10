@@ -24,7 +24,7 @@ def build_query(keywords: List[str], sources: List[Dict[str, Any]] = None,
     if not keywords:
         raise ValueError("Keywords list cannot be empty")
     
-    # Create OR query for keywords
+    # Create OR query for keywords in the format ("keyword1" OR "keyword2")
     keyword_query = " OR ".join([f'"{keyword}"' for keyword in keywords])
     
     # Add site restrictions if sources provided
@@ -40,7 +40,7 @@ def build_query(keywords: List[str], sources: List[Dict[str, Any]] = None,
         if sites:
             site_query = f" ({' OR '.join(sites)})"
     
-    # Combine query parts
+    # Combine query parts in the format ("keywords") (site:domain.com)
     full_query = f"({keyword_query}){site_query}"
     
     # Add additional terms if provided
@@ -51,7 +51,7 @@ def build_query(keywords: List[str], sources: List[Dict[str, Any]] = None,
     params = {
         "q": full_query,
         "engine": "google",
-        "num": 20,
+        "num": 5,
         "hl": "en",
         "gl": "us",
         "output": "json"

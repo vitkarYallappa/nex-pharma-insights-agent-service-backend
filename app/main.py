@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
 
-from app.config.settings import settings
+from app.config.unified_settings import settings
 from app.core.logging import setup_logging
 from app.core.database import db_connection
 from app.middleware.cors_middleware import setup_cors

@@ -6,7 +6,8 @@ from enum import Enum
 
 class Environment(str, Enum):
     """Environment types"""
-    DEVELOPMENT = "development"
+    DEVELOPMENT = "local"
+    LOCAL = "local"
     STAGING = "staging"
     PRODUCTION = "production"
     TESTING = "testing"
@@ -239,7 +240,7 @@ class RootOrchestratorConfig(BaseModel):
         """Create configuration from environment variables"""
         
         # Determine environment
-        env_name = os.getenv("ENVIRONMENT", "development").lower()
+        env_name = 'local'
         try:
             environment = Environment(env_name)
         except ValueError:
@@ -254,7 +255,7 @@ class RootOrchestratorConfig(BaseModel):
         
         # Table strategy configuration
         table_config = TableStrategyConfig(
-            polling_interval=float(os.getenv("TABLE_POLLING_INTERVAL", "5.0")),
+            polling_interval=float(os.getenv("TABLE_POLLING_INTERVAL", "20.0")),
             max_concurrent_requests=int(os.getenv("TABLE_MAX_CONCURRENT", "1")),
             table_name=os.getenv("TABLE_NAME", "market_intelligence_requests"),
             cleanup_completed_after=int(os.getenv("CLEANUP_COMPLETED_AFTER", "86400")),

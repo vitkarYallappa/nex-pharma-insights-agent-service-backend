@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     DESCRIPTION: str = "A scalable FastAPI application with DynamoDB"
     
     # Environment
-    ENVIRONMENT: str = "development"  # development, staging, production
+    ENVIRONMENT: str = "local"  # development, staging, production
     DEBUG: bool = True
     
     # Server Configuration
@@ -112,4 +112,13 @@ class Settings(BaseSettings):
         extra = "allow"  # Allow extra properties like USERS_TABLE
 
 # Global settings instance
-settings = Settings() 
+settings = Settings()
+
+# Import unified settings for backward compatibility
+try:
+    from .unified_settings import settings as unified_settings
+    # Override with unified settings if available
+    settings = unified_settings
+except ImportError:
+    # Fallback to original settings if unified not available
+    pass 
