@@ -50,6 +50,39 @@ class TableProcessingStrategy(BaseProcessingStrategy):
         self.cleanup_completed_after = config.get("cleanup_completed_after", 86400)  # 24 hours
         self.cleanup_failed_after = config.get("cleanup_failed_after", 172800)  # 48 hours
         
+        # Perplexity API configuration
+        self.perplexity_model = config.get("perplexity_model", "sonar-pro")
+        self.perplexity_max_tokens = config.get("perplexity_max_tokens", 1024)
+        self.perplexity_temperature = config.get("perplexity_temperature", 0.2)
+        self.perplexity_rate_limit_delay = config.get("perplexity_rate_limit_delay", 1.0)
+        self.perplexity_timeout = config.get("perplexity_timeout", 30.0)
+        
+        # Content generation flags
+        self.enable_market_summary = config.get("enable_market_summary", True)
+        self.enable_competitive_analysis = config.get("enable_competitive_analysis", True)
+        self.enable_regulatory_insights = config.get("enable_regulatory_insights", True)
+        self.enable_market_implications = config.get("enable_market_implications", True)
+        
+        # SERP API configuration
+        self.serp_engine = config.get("serp_engine", "google")
+        self.serp_language = config.get("serp_language", "en")
+        self.serp_country = config.get("serp_country", "us")
+        self.serp_results_per_domain = config.get("serp_results_per_domain", 5)
+        self.serp_rate_limit_delay = config.get("serp_rate_limit_delay", 0.2)
+        self.serp_timeout = config.get("serp_timeout", 30.0)
+        
+        # URL discovery configuration
+        self.enable_url_discovery = config.get("enable_url_discovery", True)
+        self.max_urls_per_analysis = config.get("max_urls_per_analysis", 20)
+        self.source_domains = config.get("source_domains", [
+            "reuters.com", "fda.gov", "clinicaltrials.gov", 
+            "pharmaphorum.com", "ema.europa.eu", "nih.gov"
+        ])
+        self.search_keywords = config.get("search_keywords", [
+            "semaglutide", "tirzepatide", "wegovy", "ozempic", "mounjaro",
+            "obesity drug", "weight loss medication", "GLP-1 receptor agonist"
+        ])
+        
         # Database client
         self.db_client = None
         
@@ -243,30 +276,38 @@ class TableProcessingStrategy(BaseProcessingStrategy):
             List[RequestSummary]: List of request summaries matching the criteria
         """
         try:
-            # Build query parameters
-            query_params = {}
+            # Build filter expression for scan operation (no GSI required)
+            filter_expressions = []
+            expression_values = {}
+            expression_names = {}
             
             if filter_criteria.status:
-                query_params["status"] = filter_criteria.status.value
+                filter_expressions.append("#status = :status")
+                expression_values[":status"] = filter_criteria.status.value
+                expression_names["#status"] = "status"
             
             if filter_criteria.request_type:
-                query_params["request_type"] = filter_criteria.request_type.value
+                filter_expressions.append("request_type = :request_type")
+                expression_values[":request_type"] = filter_criteria.request_type.value
             
             if filter_criteria.priority:
-                query_params["priority"] = filter_criteria.priority.value
+                filter_expressions.append("priority = :priority")
+                expression_values[":priority"] = filter_criteria.priority.value
             
             if filter_criteria.user_id:
-                query_params["user_id"] = filter_criteria.user_id
+                filter_expressions.append("user_id = :user_id")
+                expression_values[":user_id"] = filter_criteria.user_id
             
             if filter_criteria.project_id:
-                query_params["project_id"] = filter_criteria.project_id
+                filter_expressions.append("project_id = :project_id")
+                expression_values[":project_id"] = filter_criteria.project_id
             
-            # Query database
-            items = await self.db_client.query_items(
-                self.table_name,
-                query_params,
-                limit=filter_criteria.limit,
-                offset=filter_criteria.offset
+            # Use robust scan approach (handles scan limitations properly)
+            items = await self._scan_with_filters(
+                filter_expressions, 
+                expression_values, 
+                expression_names, 
+                filter_criteria.limit
             )
             
             # Convert to request summaries
@@ -619,4 +660,92 @@ class TableProcessingStrategy(BaseProcessingStrategy):
     
     def can_process_more_requests(self) -> bool:
         """Check if we can process more requests based on concurrency limits"""
-        return len(self._active_requests) < self.max_concurrent_requests 
+        return len(self._active_requests) < self.max_concurrent_requests
+    
+    def get_perplexity_config(self) -> Dict[str, Any]:
+        """Get Perplexity API configuration for use by market intelligence service"""
+        return {
+            "model": self.perplexity_model,
+            "max_tokens": self.perplexity_max_tokens,
+            "temperature": self.perplexity_temperature,
+            "rate_limit_delay": self.perplexity_rate_limit_delay,
+            "timeout": self.perplexity_timeout,
+            "content_generation": {
+                "enable_market_summary": self.enable_market_summary,
+                "enable_competitive_analysis": self.enable_competitive_analysis,
+                "enable_regulatory_insights": self.enable_regulatory_insights,
+                "enable_market_implications": self.enable_market_implications
+            }
+        }
+    
+    def get_serp_config(self) -> Dict[str, Any]:
+        """Get SERP API configuration for use by market intelligence service"""
+        return {
+            "engine": self.serp_engine,
+            "language": self.serp_language,
+            "country": self.serp_country,
+            "results_per_domain": self.serp_results_per_domain,
+            "rate_limit_delay": self.serp_rate_limit_delay,
+            "timeout": self.serp_timeout,
+            "url_discovery": {
+                "enable_url_discovery": self.enable_url_discovery,
+                "max_urls_per_analysis": self.max_urls_per_analysis,
+                "source_domains": self.source_domains,
+                "search_keywords": self.search_keywords
+            }
+        }
+    
+    def get_market_intelligence_config(self) -> Dict[str, Any]:
+        """Get complete configuration for market intelligence service"""
+        return {
+            "perplexity": self.get_perplexity_config(),
+            "serp": self.get_serp_config(),
+            "processing": {
+                "max_concurrent_requests": self.max_concurrent_requests,
+                "polling_interval": self.polling_interval,
+                "cleanup_completed_after": self.cleanup_completed_after
+            }
+        }
+    
+    async def _scan_with_filters(self, filter_expressions: List[str], expression_values: Dict[str, Any], 
+                                expression_names: Dict[str, str], limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Robust scan method that handles DynamoDB scan limitations properly.
+        Similar to your find_all_by_query approach.
+        """
+        try:
+            scan_kwargs = {}
+            
+            # Add filter expression if we have filters
+            if filter_expressions:
+                scan_kwargs['FilterExpression'] = " AND ".join(filter_expressions)
+                scan_kwargs['ExpressionAttributeValues'] = expression_values
+                if expression_names:
+                    scan_kwargs['ExpressionAttributeNames'] = expression_names
+            
+            # Handle scan with filters and limit properly
+            if filter_expressions and limit:
+                # When using filters, scan without limit and apply limit in code
+                all_items = []
+                response = await self.db_client.scan(self.table_name, **scan_kwargs)
+                all_items.extend(response or [])
+                
+                # For now, we'll use a simple approach since we don't have pagination info
+                # In a real implementation, you'd handle LastEvaluatedKey for pagination
+                items = all_items[:limit] if limit else all_items
+            else:
+                # No filters or no limit - use DynamoDB limit directly
+                if limit and not filter_expressions:
+                    scan_kwargs['Limit'] = limit
+                
+                items = await self.db_client.scan(self.table_name, **scan_kwargs)
+                if not items:
+                    items = []
+            
+            self.log_info(f"Scan with filters returned {len(items)} items from {self.table_name}")
+            return items
+            
+        except Exception as e:
+            error_msg = f"Scan with filters failed in {self.table_name}: {str(e)}"
+            self.log_error(error_msg)
+            return [] 

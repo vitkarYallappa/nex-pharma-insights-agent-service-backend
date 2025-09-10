@@ -9,6 +9,7 @@ from app.core.database import db_connection
 from app.middleware.cors_middleware import setup_cors
 from app.middleware.logging_middleware import LoggingMiddleware
 from app.routes.project_routes import router as project_router
+from app.routes.market_intelligence_routes import router as market_intelligence_router
 # Import other route modules here
 # from app.routes.request_routes import router as request_router
 # from app.routes.content_repository_routes import router as content_repository_router
@@ -54,6 +55,7 @@ app.add_middleware(LoggingMiddleware)
 
 # Include routers
 app.include_router(project_router, prefix=settings.API_V1_PREFIX)
+app.include_router(market_intelligence_router)
 # app.include_router(request_router, prefix=settings.api_prefix)
 # app.include_router(content_repository_router, prefix=settings.api_prefix)
 

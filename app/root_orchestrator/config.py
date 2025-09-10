@@ -35,11 +35,62 @@ class TableStrategyConfig(BaseModel):
     max_processing_retries: int = Field(default=3, ge=1, le=10, description="Max retries for processing")
     retry_delay_base: float = Field(default=2.0, ge=1.0, le=10.0, description="Base delay for exponential backoff")
     
+    # Perplexity API configuration
+    perplexity_model: str = Field(default="llama-3.1-sonar-small-128k-online", description="Perplexity model to use")
+    perplexity_max_tokens: int = Field(default=1024, ge=100, le=4000, description="Max tokens per Perplexity request")
+    perplexity_temperature: float = Field(default=0.2, ge=0.0, le=1.0, description="Perplexity temperature setting")
+    perplexity_rate_limit_delay: float = Field(default=1.0, ge=0.1, le=5.0, description="Delay between Perplexity API calls")
+    perplexity_timeout: float = Field(default=30.0, ge=5.0, le=120.0, description="Perplexity API timeout in seconds")
+    
+    # Content generation configuration
+    enable_market_summary: bool = Field(default=True, description="Enable market summary generation")
+    enable_competitive_analysis: bool = Field(default=True, description="Enable competitive analysis")
+    enable_regulatory_insights: bool = Field(default=True, description="Enable regulatory insights")
+    enable_market_implications: bool = Field(default=True, description="Enable market implications")
+    
+    # SERP API configuration
+    serp_engine: str = Field(default="google", description="SERP search engine")
+    serp_language: str = Field(default="en", description="SERP search language")
+    serp_country: str = Field(default="us", description="SERP search country")
+    serp_results_per_domain: int = Field(default=5, ge=1, le=20, description="Max results per domain")
+    serp_rate_limit_delay: float = Field(default=0.2, ge=0.1, le=2.0, description="Delay between SERP API calls")
+    serp_timeout: float = Field(default=30.0, ge=5.0, le=120.0, description="SERP API timeout in seconds")
+    
+    # URL discovery configuration
+    enable_url_discovery: bool = Field(default=True, description="Enable URL discovery via SERP")
+    max_urls_per_analysis: int = Field(default=20, ge=5, le=50, description="Max URLs to use for analysis")
+    source_domains: List[str] = Field(
+        default=[
+            "reuters.com", "fda.gov", "clinicaltrials.gov", 
+            "pharmaphorum.com", "ema.europa.eu", "nih.gov"
+        ],
+        description="Domains to search for relevant content"
+    )
+    search_keywords: List[str] = Field(
+        default=[
+            "semaglutide", "tirzepatide", "wegovy", "ozempic", "mounjaro",
+            "obesity drug", "weight loss medication", "GLP-1 receptor agonist"
+        ],
+        description="Keywords for content discovery"
+    )
+    
     @validator('polling_interval')
     def validate_polling_interval(cls, v):
         """Validate polling interval is reasonable"""
         if v < 1.0:
             raise ValueError("Polling interval must be at least 1 second")
+        return v
+    
+    @validator('perplexity_model')
+    def validate_perplexity_model(cls, v):
+        """Validate Perplexity model name"""
+        valid_models = [
+            "llama-3.1-sonar-small-128k-online",
+            "llama-3.1-sonar-large-128k-online", 
+            "llama-3.1-sonar-huge-128k-online"
+        ]
+        if v not in valid_models:
+            raise ValueError(f"Perplexity model must be one of {valid_models}")
         return v
 
 
