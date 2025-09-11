@@ -3,6 +3,7 @@ from typing import Dict, Any, Optional
 from ...config.service_factory import ServiceFactory
 from .models import Agent4ImplicationsRequest, Agent4ImplicationsResponse
 from ...shared.utils.logger import get_logger
+from ...shared.utils.text_processing import parse_s3_uri
 
 logger = get_logger(__name__)
 
@@ -46,7 +47,10 @@ class Agent4ImplicationsService:
             # Get content from S3 path
             combined_content = ""
             try:
-                content_bytes = await self.storage_client.get_content(s3_path)
+                # Parse S3 URI to extract object key
+                object_key = parse_s3_uri(s3_path)
+                logger.info(f"Parsed S3 object key: {object_key}")
+                content_bytes = await self.storage_client.get_content(object_key)
                 if content_bytes:
                     content_str = content_bytes.decode('utf-8')
                     # Try to parse as JSON first

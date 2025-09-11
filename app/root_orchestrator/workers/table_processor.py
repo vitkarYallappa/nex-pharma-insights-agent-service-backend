@@ -303,8 +303,11 @@ class TableProcessor:
             # Import Stage1 orchestrator
             from ...agent_service_module.agents.stage1_orchestrator.service import Stage1OrchestratorService
             
-            # Extract S3 path from Stage0 results (assuming it's stored there)
-            s3_summary_path = stage0_result.get('s3_summary_path', f"s3://bucket/summaries/{request.request_id}/summary.json")
+            # Extract S3 path from Stage0 results
+            # Stage0 stores the summary path as 'summary_path' in the result
+            summary_path = stage0_result.get('summary_path', f"{request.request_id}/stage0_summary.json")
+            # Convert to full S3 URI for Stage1 orchestrator
+            s3_summary_path = f"s3://bucket/{summary_path}"
             
             # Create Stage1 orchestrator
             stage1_service = Stage1OrchestratorService()

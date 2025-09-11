@@ -8,7 +8,7 @@ Fetches content from S3 and stores results in database.
 import json
 import time
 import uuid
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from ...config.service_factory import ServiceFactory
 from .models import Agent3InsightsRequest, Agent3InsightsResponse, InsightsData
@@ -16,6 +16,7 @@ from .content_insight_model import ContentInsightModel
 from .anthropic_direct_client import AnthropicDirectClient
 from .aws_bedrock_client import AWSBedrockClient
 from ...shared.utils.logger import get_logger
+from ...shared.utils.text_processing import parse_s3_uri
 
 logger = get_logger(__name__)
 
@@ -108,7 +109,10 @@ class Agent3InsightsService:
             # Get content from S3 path
             combined_content = ""
             try:
-                content_bytes = await self.storage_client.get_content(s3_path)
+                # Parse S3 URI to extract object key
+                object_key = parse_s3_uri(s3_path)
+                logger.info(f"Parsed S3 object key: {object_key}")
+                content_bytes = await self.storage_client.get_content(object_key)
                 if content_bytes:
                     content_str = content_bytes.decode('utf-8')
                     # Try to parse as JSON first
@@ -276,41 +280,19 @@ class Agent3InsightsService:
             logger.error(f"Error storing results: {str(e)}")
             # Don't raise - storage failure shouldn't fail the entire process
     
-    async def get_results(self, request_id: str) -> Optional[Dict[str, Any]]:
+    async def get_results(self, request_id: str) -> Optional[List[Dict[str, Any]]]:
         """Retrieve results for a request ID using ContentInsightModel"""
         try:
             # Since we don't have GSI, we'll use scan with filter (for simple cases)
             # In production, you might want to store a mapping or use a different approach
-            response = await self.database_client.scan_table(
+            response = await self.database_client.scan(
                 table_name=self.table_name,
-                filter_expression="url_id = :url_id",
-                expression_attribute_values={":url_id": request_id}
+                FilterExpression="url_id = :url_id",
+                ExpressionAttributeValues={":url_id": request_id}
             )
             
-            items = response.get("Items", [])
-            if not items:
-                return None
-            
-            # Convert items to ContentInsightModel instances
-            insights = []
-            summary_record = None
-            
-            for item in items:
-                content_insight = ContentInsightModel.from_dict(item)
-                if content_insight.insight_category == "summary":
-                    summary_record = content_insight
-                else:
-                    insights.append(content_insight.to_response())
-            
-            result = {
-                "request_id": request_id,
-                "insights": insights,
-                "summary": summary_record.to_response() if summary_record else None,
-                "total_insights": len(insights),
-                "status": "completed"
-            }
-            
-            return result
+            # Return the raw items from DynamoDB scan
+            return response if response else []
             
         except Exception as e:
             logger.error(f"Error retrieving results for request_id {request_id}: {str(e)}")

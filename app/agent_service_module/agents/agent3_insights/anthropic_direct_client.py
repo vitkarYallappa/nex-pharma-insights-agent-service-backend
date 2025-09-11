@@ -14,15 +14,13 @@ from datetime import datetime
 try:
     from .prompt_config import InsightPromptConfig, MODEL_CONFIG
     from ...shared.utils.logger import get_logger
+    logger = get_logger(__name__)
 except ImportError:
     # For standalone testing
     from prompt_config import InsightPromptConfig, MODEL_CONFIG
     import logging
     def get_logger(name):
         return logging.getLogger(name)
-    # Fallback for standalone testing
-    from prompt_config import InsightPromptConfig, MODEL_CONFIG
-    import logging
     logger = logging.getLogger(__name__)
 
 class AnthropicDirectClient:

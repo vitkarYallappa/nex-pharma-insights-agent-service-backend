@@ -11,6 +11,7 @@ from datetime import datetime
 import json
 import uuid
 
+from . import MarketIntelligenceRequest
 from .temp_logger import get_logger
 from .temp_service_factory import ServiceFactory
 
@@ -249,6 +250,9 @@ class MarketIntelligenceService:
             
             logger.info(f"🎯 Content extraction completed: {len(extracted_content)}/{len(urls_to_process)} successful")
             
+            # Create and save Perplexity summary
+            await self._create_perplexity_summary(request_id, extracted_content, urls_to_process)
+            
             return {
                 "extracted_content": extracted_content,
                 "total_processed": len(urls_to_process),
@@ -266,6 +270,91 @@ class MarketIntelligenceService:
                 "successful_extractions": 0,
                 "error": str(e)
             }
+    
+    async def _create_perplexity_summary(self, request_id: str, extracted_content: List[Dict[str, Any]], urls_processed: List[str]) -> bool:
+        """Create and save Perplexity extraction summaries using existing content_summary table"""
+        try:
+            # Import the existing content summary model
+            from ..agent_service_module.agents.stage0_perplexity.content_summary_model import ContentSummaryModel
+            
+            logger.info(f"📊 Creating Perplexity summaries for request: {request_id}")
+            
+            summaries_created = 0
+            
+            # Create individual summaries for each extracted content
+            for i, item in enumerate(extracted_content):
+                try:
+                    # Generate IDs for the summary
+                    url_id = str(uuid.uuid4())
+                    content_id = str(uuid.uuid4())
+                    
+                    # Create summary text from the extracted content
+                    title = item.get('title', 'Untitled')
+                    url = item.get('url', 'Unknown URL')
+                    word_count = item.get('word_count', 0)
+                    confidence = item.get('confidence', 0.0)
+                    
+                    summary_text = f"Content extracted from {title} ({url}). Word count: {word_count}, Confidence: {confidence:.2f}"
+                    
+                    # Use the storage path as the file path
+                    file_path = item.get('storage_path', f"perplexity_content/{request_id}/{i}.json")
+                    
+                    # Create content summary using existing model
+                    content_summary = ContentSummaryModel.create_new(
+                        url_id=url_id,
+                        content_id=content_id,
+                        summary_text=summary_text,
+                        summary_content_file_path=file_path,
+                        confidence_score=confidence,
+                        version=1,
+                        is_canonical=True,
+                        preferred_choice=True,
+                        created_by=f"perplexity_extractor_{request_id}"
+                    )
+                    
+                    # Save to database using the existing database client
+                    table_name = ContentSummaryModel.table_name()
+                    success = await self.database_client.put_item(table_name, content_summary.to_dict())
+                    
+                    if success:
+                        summaries_created += 1
+                        logger.info(f"📊 ✅ Content summary saved: {title[:50]}...")
+                    else:
+                        logger.error(f"📊 ❌ Failed to save content summary: {title[:50]}...")
+                        
+                except Exception as item_error:
+                    logger.error(f"📊 🚨 Error processing item {i}: {item_error}")
+                    continue
+            
+            # Create an overall summary for the request
+            if summaries_created > 0:
+                overall_summary_text = f"Perplexity extraction completed for request {request_id}. Successfully processed {summaries_created}/{len(extracted_content)} URLs."
+                
+                overall_summary = ContentSummaryModel.create_new(
+                    url_id=str(uuid.uuid4()),
+                    content_id=str(uuid.uuid4()),
+                    summary_text=overall_summary_text,
+                    summary_content_file_path=f"{request_id}/perplexity_overall_summary.json",
+                    confidence_score=summaries_created / len(extracted_content) if extracted_content else 0.0,
+                    version=1,
+                    is_canonical=True,
+                    preferred_choice=True,
+                                        created_by=f"perplexity_orchestrator_{request_id}"
+                )
+                
+                table_name = ContentSummaryModel.table_name()
+                await self.database_client.put_item(table_name, overall_summary.to_dict())
+                
+                logger.info(f"📊 ✅ Overall Perplexity summary saved for request: {request_id}")
+                logger.info(f"📊 Summary: {overall_summary_text}")
+            
+            return summaries_created > 0
+            
+        except Exception as e:
+            logger.error(f"📊 🚨 Error creating Perplexity summaries: {e}")
+            import traceback
+            logger.error(f"📊 🚨 Traceback: {traceback.format_exc()}")
+            return False
     
     async def _assemble_final_summary(self, request_id: str, discovered_urls: Dict[str, Any], content_summary: Dict[str, Any]) -> Dict[str, Any]:
         """Assemble final summary for Stage1 processing"""

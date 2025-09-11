@@ -192,4 +192,40 @@ def calculate_content_quality_score(content: Dict[str, Any]) -> float:
     elif url:
         score += 0.075
     
-    return min(1.0, score) 
+    return min(1.0, score)
+
+
+def parse_s3_uri(s3_uri: str) -> str:
+    """
+    Parse S3 URI and extract the object key.
+    
+    Args:
+        s3_uri: S3 URI in format s3://bucket/path/to/object or just path/to/object
+        
+    Returns:
+        str: The object key (path without s3://bucket/ prefix)
+        
+    Examples:
+        parse_s3_uri("s3://bucket/summaries/req_123/summary.json") -> "summaries/req_123/summary.json"
+        parse_s3_uri("summaries/req_123/summary.json") -> "summaries/req_123/summary.json"
+    """
+    if not s3_uri:
+        return ""
+    
+    # If it's already just an object key (no s3:// prefix), return as is
+    if not s3_uri.startswith('s3://'):
+        return s3_uri
+    
+    # Parse s3://bucket/path/to/object
+    # Remove s3:// prefix
+    uri_without_protocol = s3_uri[5:]  # Remove 's3://'
+    
+    # Find first slash after bucket name
+    first_slash_index = uri_without_protocol.find('/')
+    if first_slash_index == -1:
+        # No path after bucket name
+        return ""
+    
+    # Return everything after bucket/
+    object_key = uri_without_protocol[first_slash_index + 1:]
+    return object_key 

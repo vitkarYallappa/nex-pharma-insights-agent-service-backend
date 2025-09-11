@@ -134,3 +134,71 @@ class PerplexityDatabase:
         except Exception as e:
             logger.error(f"Status update error: {str(e)}")
             return False
+    
+    async def save_summary(self, summary_data: Dict[str, Any]) -> bool:
+        """Save Perplexity extraction summary to summary table"""
+        try:
+            from ....config.table_configs.perplexity_summary_table import PerplexitySummaryTableConfig
+            from ....config.unified_settings import settings
+            
+            # Get table name with environment suffix
+            table_name = PerplexitySummaryTableConfig.get_table_name(settings.TABLE_ENVIRONMENT)
+            
+            success = await self.db_client.save_item(table_name, summary_data)
+            
+            if success:
+                logger.info(f"Saved Perplexity summary: {summary_data.get('request_id')}")
+            else:
+                logger.error(f"Failed to save summary: {summary_data.get('request_id')}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Summary save error: {str(e)}")
+            return False
+    
+    async def get_summary(self, request_id: str) -> Optional[Dict[str, Any]]:
+        """Get Perplexity extraction summary by request ID"""
+        try:
+            from ....config.table_configs.perplexity_summary_table import PerplexitySummaryTableConfig
+            from ....config.unified_settings import settings
+            
+            # Get table name with environment suffix
+            table_name = PerplexitySummaryTableConfig.get_table_name(settings.TABLE_ENVIRONMENT)
+            
+            key = {"request_id": request_id}
+            summary = await self.db_client.get_item(table_name, key)
+            
+            if summary:
+                logger.info(f"Retrieved Perplexity summary: {request_id}")
+            else:
+                logger.warning(f"No summary found: {request_id}")
+            
+            return summary
+            
+        except Exception as e:
+            logger.error(f"Summary get error: {str(e)}")
+            return None
+    
+    async def list_summaries(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """List recent Perplexity summaries"""
+        try:
+            from ....config.table_configs.perplexity_summary_table import PerplexitySummaryTableConfig
+            from ....config.unified_settings import settings
+            
+            # Get table name with environment suffix
+            table_name = PerplexitySummaryTableConfig.get_table_name(settings.TABLE_ENVIRONMENT)
+            
+            # Query using GSI to get recent summaries
+            summaries = await self.db_client.query_items(
+                table_name,
+                index_name="created_at-index",
+                limit=limit
+            )
+            
+            logger.info(f"Retrieved {len(summaries)} Perplexity summaries")
+            return summaries
+            
+        except Exception as e:
+            logger.error(f"Summary list error: {str(e)}")
+            return []
