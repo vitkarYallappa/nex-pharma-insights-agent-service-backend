@@ -77,6 +77,7 @@ class MarketIntelligenceController(BaseController):
             # Create the market intelligence request
             mi_request = MarketIntelligenceRequest(
                 project_id=request_data.project_id,
+                project_request_id=request_data.project_request_id,
                 user_id=request_data.user_id,
                 priority=request_data.priority,
                 processing_strategy=request_data.processing_strategy,

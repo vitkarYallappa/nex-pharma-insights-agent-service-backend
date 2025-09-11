@@ -64,16 +64,15 @@ class Agent3InsightsRequest(BaseModel):
     request_id: str = Field(..., description="Unique request identifier")
     s3_summary_path: Optional[str] = Field(None, description="S3 path to summary content")
     content: Optional[str] = Field(None, description="Direct content for processing")
+    url_id: Optional[str] = Field(None, description="URL ID from Perplexity processing")
+    content_id: Optional[str] = Field(None, description="Content ID from Perplexity processing")
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
     api_provider: str = Field(default="anthropic_direct", description="API provider to use")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class InsightsData(BaseModel):
-    """Structured insights data"""
-    market_insights: List[MarketInsight] = Field(default_factory=list)
-    key_themes: List[str] = Field(default_factory=list)
-    strategic_recommendations: List[StrategicRecommendation] = Field(default_factory=list)
-    risk_factors: List[RiskFactor] = Field(default_factory=list)
+    """MVP insights data - simple HTML content"""
+    html_content: str = Field(..., description="HTML formatted insights for MVP")
 
 class Agent3InsightsResponse(BaseModel):
     """Response model for Agent 3 insights generation"""

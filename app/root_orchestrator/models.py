@@ -178,6 +178,7 @@ class MarketIntelligenceRequest(BaseModel):
     # Primary identifiers
     request_id: str = Field(default="", description="Unique request identifier")
     project_id: str = Field(..., description="Project identifier")
+    project_request_id: str = Field(..., description="Project identifier")
     user_id: str = Field(..., description="User identifier")
     
     # Request metadata

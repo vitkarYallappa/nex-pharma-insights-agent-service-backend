@@ -32,7 +32,12 @@ class TableNames:
     @staticmethod
     def get_content_insights_table(environment: str) -> str:
         """Get content insights table name for environment"""
-        return f"content_insights-{environment}"
+        return f"content_insight-{environment}"
+    
+    @staticmethod
+    def get_content_summary_table(environment: str) -> str:
+        """Get content summary table name for environment"""
+        return f"content_summary-{environment}"
 
 
 class TableConfig:
@@ -65,6 +70,10 @@ class TableConfig:
     def content_insights_table(self) -> str:
         return TableNames.get_content_insights_table(self.environment)
     
+    @property
+    def content_summary_table(self) -> str:
+        return TableNames.get_content_summary_table(self.environment)
+    
     def get_all_tables(self) -> Dict[str, str]:
         """Get all table names as a dictionary"""
         return {
@@ -73,7 +82,8 @@ class TableConfig:
             "requests": self.requests_table,
             "content_repository": self.content_repository_table,
             "agent3_insights": self.agent3_insights_table,
-            "content_insights": self.content_insights_table
+            "content_insights": self.content_insights_table,
+            "content_summary": self.content_summary_table
         }
     
     def get_table_configs(self) -> Dict[str, Dict[str, Any]]:
@@ -133,13 +143,21 @@ class TableConfig:
                             {"AttributeName": "status", "KeyType": "HASH"},
                             {"AttributeName": "timestamp", "KeyType": "RANGE"}
                         ],
-                        "Projection": {"ProjectionType": "ALL"},
-                        "BillingMode": "PAY_PER_REQUEST"
+                        "Projection": {"ProjectionType": "ALL"}
                     }
                 ],
                 "BillingMode": "PAY_PER_REQUEST"
             },
             self.content_insights_table: {
+                "KeySchema": [
+                    {"AttributeName": "pk", "KeyType": "HASH"}
+                ],
+                "AttributeDefinitions": [
+                    {"AttributeName": "pk", "AttributeType": "S"}
+                ],
+                "BillingMode": "PAY_PER_REQUEST"
+            },
+            self.content_summary_table: {
                 "KeySchema": [
                     {"AttributeName": "pk", "KeyType": "HASH"}
                 ],

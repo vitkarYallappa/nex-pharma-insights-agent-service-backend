@@ -13,6 +13,7 @@ class SubmitRequestSchema(BaseModel):
     """Schema for submitting a new market intelligence request"""
     
     project_id: str = Field(..., description="Project identifier")
+    project_request_id: str = Field(..., description="Project identifier")
     user_id: str = Field(..., description="User identifier")
     priority: Priority = Field(default=Priority.MEDIUM, description="Request priority")
     processing_strategy: ProcessingStrategy = Field(

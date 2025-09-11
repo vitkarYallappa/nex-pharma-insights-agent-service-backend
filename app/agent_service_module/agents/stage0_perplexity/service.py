@@ -1,17 +1,17 @@
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from ...config.service_factory import ServiceFactory
 from .models import ExtractedContent
+from .db_operations_service import PerplexityDbOperationsService
 from ...shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 class PerplexityService:
-    """Perplexity service for single URL content extraction"""
+    """Perplexity service for single URL content extraction with centralized storage"""
     
     def __init__(self, prompt_type: str = "default"):
         self.perplexity_client = ServiceFactory.get_perplexity_client()
-        self.storage_client = ServiceFactory.get_storage_client()
-        self.database_client = ServiceFactory.get_database_client()
+        self.db_operations = PerplexityDbOperationsService()  # Centralized DB operations
         self.prompt_type = prompt_type
         
         # Set prompt type on client if it supports it
@@ -57,13 +57,26 @@ class PerplexityService:
             return None
 
     async def _store_extraction(self, content: ExtractedContent, request_id: str):
-        """Store extraction result"""
+        """Store extraction result using centralized DB operations"""
         try:
-            # Store in database
-            await self.database_client.store_extraction_result(content, request_id)
+            # Convert ExtractedContent to dict format
+            content_item = {
+                "url": str(getattr(content, 'url', 'unknown')),  # Convert URL to string
+                "title": getattr(content, 'title', 'Untitled'),
+                "content": getattr(content, 'content', ''),
+                "word_count": getattr(content, 'word_count', 0),
+                "confidence": getattr(content, 'extraction_confidence', 0.8),
+                "metadata": getattr(content, 'metadata', {})
+            }
             
-            # Store in S3 if needed
-            await self.storage_client.store_content(content, request_id)
+            # Store using centralized DB operations service
+            storage_result = await self.db_operations.store_perplexity_extraction_complete(
+                request_id=request_id,
+                extracted_content=[content_item],  # Single item in list
+                request_details=None  # Will use defaults
+            )
+            
+            logger.info(f"✅ Stored extraction via centralized service: {storage_result.get('database_records', 0)} DB records")
             
         except Exception as e:
             logger.warning(f"Failed to store extraction result: {str(e)}")

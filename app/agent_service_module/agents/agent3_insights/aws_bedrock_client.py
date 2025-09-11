@@ -45,6 +45,13 @@ class AWSBedrockClient:
     def __init__(self):
         """Initialize AWS Bedrock client with enhanced credential handling"""
         try:
+            # Check if mock mode is enabled
+            self.mock_mode = os.getenv("BEDROCK_MOCK_MODE", "false").lower() == "true"
+            
+            if self.mock_mode:
+                logger.info("🎭 AWS Bedrock client initialized in MOCK MODE")
+                return
+            
             # Get AWS configuration
             self.aws_region = getattr(settings, 'AWS_REGION', None) or os.getenv("AWS_REGION", "us-east-1")
 
@@ -104,7 +111,7 @@ class AWSBedrockClient:
 
     async def generate_insights(self, content: str, request_id: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[
         str, Any]:
-        """Generate insights from content using AWS Bedrock Anthropic Claude"""
+        """Generate insights from content using AWS Bedrock Anthropic Claude or mock data"""
         try:
             logger.info(f"Generating insights via AWS Bedrock for request_id: {request_id}")
 
@@ -115,6 +122,11 @@ class AWSBedrockClient:
             if len(content) > 100000:  # 100KB limit
                 logger.warning(f"Content length ({len(content)}) exceeds recommended limit")
                 content = content[:100000] + "... [truncated]"
+
+            # Check if mock mode is enabled
+            if self.mock_mode:
+                logger.info(f"🎭 Using mock mode for request_id: {request_id}")
+                return await self._generate_mock_insights(content, request_id, metadata)
 
             # Prepare messages for Claude
             messages = [
@@ -134,18 +146,7 @@ class AWSBedrockClient:
             result = {
                 "request_id": request_id,
                 "insights": insights,
-                "metadata": {
-                    "model": self.model_config["model_id"],
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "content_length": len(content),
-                    "api_provider": "aws_bedrock",
-                    "aws_region": self.aws_region,
-                    "processing_time_ms": None,  # Could be calculated if needed
-                    "model_config": {
-                        "max_tokens": self.model_config["max_tokens"],
-                        "temperature": self.model_config["temperature"]
-                    }
-                }
+                "metadata": {}
             }
 
             logger.info(f"Successfully generated insights via AWS Bedrock for request_id: {request_id}")
@@ -153,6 +154,36 @@ class AWSBedrockClient:
 
         except Exception as e:
             logger.error(f"Error generating insights via AWS Bedrock for request_id {request_id}: {str(e)}")
+            raise
+
+    async def _generate_mock_insights(self, content: str, request_id: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Generate realistic mock insights data for testing purposes"""
+        try:
+            logger.info(f"🎭 Generating mock insights for request_id: {request_id}")
+            
+            # Simulate processing delay
+            await asyncio.sleep(0.5)
+            
+            # Import and use the dedicated mock data
+            from .mock_data import get_mock_insights_data
+            
+            # Generate mock insights using the dedicated mock data file
+            mock_insights = get_mock_insights_data(content, request_id)
+            
+            # Create response with mock metadata - simplified for MVP
+            result = {
+                "request_id": request_id,
+                "insights": mock_insights,
+                "metadata": {}
+            }
+            
+            logger.info(f"🎭 Successfully generated mock insights for request_id: {request_id}")
+            logger.info(f"🎭 Mock insights: HTML content only (MVP mode)")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"🎭 Error generating mock insights for request_id {request_id}: {str(e)}")
             raise
 
     async def _call_bedrock_api_with_retry(self, messages: list, max_retries: int = 3) -> Dict[str, Any]:
@@ -201,9 +232,9 @@ class AWSBedrockClient:
 
             # Get agent configuration from settings or environment
             agent_id = getattr(settings, 'AWS_BEDROCK_AGENT_ID', None) or os.getenv("AWS_BEDROCK_AGENT_ID",
-                                                                                    "B7TOHQ5N03")
+                                                                                    "**********")
             agent_alias_id = getattr(settings, 'AWS_BEDROCK_AGENT_ALIAS_ID', None) or os.getenv(
-                "AWS_BEDROCK_AGENT_ALIAS_ID", "KOINO4TU2J")
+                "AWS_BEDROCK_AGENT_ALIAS_ID", "***********")
 
             logger.debug(f"Invoking Bedrock agent {agent_id} with session {session_id}")
 

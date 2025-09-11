@@ -28,10 +28,15 @@ class MarketIntelligenceService:
     
     def __init__(self):
         self.processing_time = 10  # Base processing time
-        self.perplexity_client = ServiceFactory.get_perplexity_client()
+        # Use PerplexityService instead of direct client for proper content-summary storage
+        from ..agent_service_module.agents.stage0_perplexity.service import PerplexityService
+        self.perplexity_service = PerplexityService()
         self.serp_client = ServiceFactory.get_serp_client()
         self.storage_client = ServiceFactory.get_storage_client()
         self.database_client = ServiceFactory.get_database_client()
+        
+        # Initialize root orchestrator service for request details fetching
+        self.root_orchestrator = None
         
         # Default source domains for URL discovery
         self.source_domains = [
@@ -71,7 +76,10 @@ class MarketIntelligenceService:
             # Stage 2: Final Summary Assembly  
             logger.info(f"🚀 Stage 2: Starting Summary Assembly for {request_id}")
             await self._simulate_stage("summary_assembly", 1)
-            results = await self._assemble_final_summary(request_id, discovered_urls, content_summary)
+            # Fetch request details for final summary (in case not already available)
+            if 'request_details' not in locals():
+                request_details = await self._fetch_request_details(request_id)
+            results = await self._assemble_final_summary(request_id, discovered_urls, content_summary, request_details)
             logger.info(f"📋 Stage 2 Complete: Assembly status = {results.get('status', 'unknown')}")
             
             logger.info(f"Semaglutide intelligence workflow completed for request: {request_id}")
@@ -85,6 +93,94 @@ class MarketIntelligenceService:
         """Simulate a processing stage with delay"""
         logger.info(f"Processing stage: {stage_name}")
         await asyncio.sleep(duration)
+    
+    async def _get_root_orchestrator(self):
+        """Get or initialize root orchestrator service"""
+        if self.root_orchestrator is None:
+            from .root_orchestrator_service import RootOrchestratorService
+            self.root_orchestrator = RootOrchestratorService()
+            await self.root_orchestrator.initialize()
+        return self.root_orchestrator
+    
+    async def _fetch_request_details(self, request_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetch request details based on request_id from the root orchestrator.
+        
+        Args:
+            request_id: The request identifier
+            
+        Returns:
+            Optional[Dict[str, Any]]: Request details with metadata, or None if not found
+        """
+        try:
+            logger.info(f"🔍 Fetching request details for: {request_id}")
+            
+            # Get root orchestrator service
+            orchestrator = await self._get_root_orchestrator()
+            
+            # Fetch request details
+            request = await orchestrator.get_request_status(request_id)
+            
+            if request:
+                logger.info(f"✅ Request details found for: {request_id}")
+                logger.info(f"📋 Project ID: {request.project_id}, User ID: {request.user_id}")
+                logger.info(f"📋 Project Request ID: {request.project_request_id}")
+                logger.info(f"📋 Request Type: {request.request_type}, Priority: {request.priority}")
+                
+                return {
+                    "request_id": request.request_id,
+                    "project_id": request.project_id,
+                    "project_request_id": request.project_request_id,
+                    "user_id": request.user_id,
+                    "request_type": request.request_type.value if hasattr(request.request_type, 'value') else str(request.request_type),
+                    "priority": request.priority.value if hasattr(request.priority, 'value') else str(request.priority),
+                    "status": request.status.value if hasattr(request.status, 'value') else str(request.status),
+                    "config": request.config.dict() if hasattr(request.config, 'dict') else request.config,
+                    "processing_metadata": request.processing_metadata,
+                    "created_at": request.created_at.isoformat() if hasattr(request.created_at, 'isoformat') else str(request.created_at),
+                    "updated_at": request.updated_at.isoformat() if hasattr(request.updated_at, 'isoformat') else str(request.updated_at)
+                }
+            else:
+                logger.warning(f"❌ Request details not found for: {request_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"🚨 Error fetching request details for {request_id}: {e}")
+            import traceback
+            logger.error(f"🚨 Traceback: {traceback.format_exc()}")
+            return None
+    
+    def _create_enhanced_storage_path(self, request_details: Dict[str, Any], content_uuid: str, sanitized_url: str, timestamp: str) -> str:
+        """
+        Create enhanced storage path using request metadata.
+        
+        Args:
+            request_details: Request details with metadata
+            content_uuid: Unique content identifier
+            sanitized_url: Sanitized URL string
+            timestamp: Timestamp string
+            
+        Returns:
+            str: Enhanced storage path
+        """
+        try:
+            # Extract metadata for path creation
+            request_id = request_details.get("request_id", "unknown")
+            project_request_id = request_details.get("project_request_id", "unknown")
+            project_id = request_details.get("project_id", "unknown")
+            user_id = request_details.get("user_id", "unknown")
+            request_type = request_details.get("request_type", "unknown")
+            
+            # Create hierarchical storage path with metadata
+            storage_path = f"projects/{project_id}/project_request_id/{project_request_id}/requests/{request_id}/content/{request_type}/{content_uuid}/{sanitized_url}_{timestamp}.json"
+            
+            logger.info(f"📁 Enhanced storage path created: {storage_path}")
+            return storage_path
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Error creating enhanced storage path, using fallback: {e}")
+            # Fallback to original path structure
+            return f"{request_details.get('request_id', 'unknown')}/{content_uuid}/{sanitized_url}_{timestamp}.json"
     
     def _generate_production_results(self, request_id: str) -> Dict[str, Any]:
         """Generate production results structure"""
@@ -184,31 +280,43 @@ class MarketIntelligenceService:
             
             logger.info(f"🔍 Starting content extraction for request: {request_id}")
             
+            # Fetch request details first
+            request_details = await self._fetch_request_details(request_id)
+            if not request_details:
+                logger.warning(f"⚠️ Could not fetch request details for {request_id}, using fallback metadata")
+                request_details = {
+                    "request_id": request_id,
+                    "project_id": "unknown",
+                    "user_id": "unknown",
+                    "request_type": "semaglutide_intelligence"
+                }
+            
             extracted_content = []
             urls_to_process = discovered_urls.get("discovered_urls", [])[:5]  # Process top 5 URLs
             
             logger.info(f"📋 URLs to process: {len(urls_to_process)} URLs")
             logger.info(f"📋 URL list: {urls_to_process}")
+            logger.info(f"📋 Using request metadata: Project={request_details.get('project_id')}, User={request_details.get('user_id')}")
             
             for i, url in enumerate(urls_to_process, 1):
                 try:
                     logger.info(f"🌐 [{i}/{len(urls_to_process)}] Processing URL: {url}")
                     
-                    # Extract content using Perplexity
+                    # Extract content using Perplexity Service (includes content-summary storage)
                     logger.info(f"🔄 Calling Perplexity API for: {url}")
-                    content = await self.perplexity_client.extract_single_url(url)
+                    content = await self.perplexity_service.extract_single_url(url, request_id)
                     logger.info(f"✅ Perplexity response received for: {url}")
                     
                     if content and content.content:
                         logger.info(f"📄 Content extracted successfully: {len(content.content)} chars")
-                        # Generate storage path: request_id/uuid/sanitized_url_timestamp
+                        # Generate enhanced storage path using request metadata
                         content_uuid = str(uuid.uuid4())
                         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
                         sanitized_url = re.sub(r'[^a-zA-Z0-9_-]', '_', url.replace('https://', '').replace('http://', ''))
                         
-                        storage_path = f"{request_id}/{content_uuid}/{sanitized_url}_{timestamp}.json"
+                        storage_path = self._create_enhanced_storage_path(request_details, content_uuid, sanitized_url, timestamp)
                         
-                        # Prepare content for storage
+                        # Prepare content for storage with enhanced metadata
                         content_data = {
                             "url": url,
                             "title": content.title,
@@ -216,7 +324,21 @@ class MarketIntelligenceService:
                             "extracted_at": datetime.utcnow().isoformat(),
                             "word_count": content.word_count,
                             "confidence": content.extraction_confidence,
-                            "metadata": content.metadata
+                            "metadata": content.metadata,
+                            # Enhanced metadata from request details
+                            "request_metadata": {
+                                "request_id": request_details.get("request_id"),
+                                "project_id": request_details.get("project_id"),
+                                "user_id": request_details.get("user_id"),
+                                "request_type": request_details.get("request_type"),
+                                "priority": request_details.get("priority"),
+                                "created_at": request_details.get("created_at")
+                            },
+                            "storage_metadata": {
+                                "content_uuid": content_uuid,
+                                "storage_path": storage_path,
+                                "timestamp": timestamp
+                            }
                         }
                         
                         # Store in S3 using upload_content method
@@ -250,8 +372,7 @@ class MarketIntelligenceService:
             
             logger.info(f"🎯 Content extraction completed: {len(extracted_content)}/{len(urls_to_process)} successful")
             
-            # Create and save Perplexity summary
-            await self._create_perplexity_summary(request_id, extracted_content, urls_to_process)
+            # Perplexity summary creation moved to Agent 3 workflow
             
             return {
                 "extracted_content": extracted_content,
@@ -271,7 +392,7 @@ class MarketIntelligenceService:
                 "error": str(e)
             }
     
-    async def _create_perplexity_summary(self, request_id: str, extracted_content: List[Dict[str, Any]], urls_processed: List[str]) -> bool:
+    async def _create_perplexity_summary(self, request_id: str, extracted_content: List[Dict[str, Any]], urls_processed: List[str], request_details: Dict[str, Any]) -> bool:
         """Create and save Perplexity extraction summaries using existing content_summary table"""
         try:
             # Import the existing content summary model
@@ -288,18 +409,25 @@ class MarketIntelligenceService:
                     url_id = str(uuid.uuid4())
                     content_id = str(uuid.uuid4())
                     
-                    # Create summary text from the extracted content
+                    # Create enhanced summary text from the extracted content with request metadata
                     title = item.get('title', 'Untitled')
                     url = item.get('url', 'Unknown URL')
                     word_count = item.get('word_count', 0)
                     confidence = item.get('confidence', 0.0)
                     
-                    summary_text = f"Content extracted from {title} ({url}). Word count: {word_count}, Confidence: {confidence:.2f}"
+                    # Enhanced summary with request context
+                    project_id = request_details.get('project_id', 'unknown')
+                    user_id = request_details.get('user_id', 'unknown')
+                    request_type = request_details.get('request_type', 'unknown')
                     
-                    # Use the storage path as the file path
+                    summary_text = f"[Project: {project_id}] [User: {user_id}] [Type: {request_type}] Content extracted from {title} ({url}). Word count: {word_count}, Confidence: {confidence:.2f}"
+                    
+                    # Use the enhanced storage path as the file path
                     file_path = item.get('storage_path', f"perplexity_content/{request_id}/{i}.json")
                     
-                    # Create content summary using existing model
+                    # Create content summary using existing model with enhanced metadata
+                    created_by_info = f"perplexity_extractor_{request_id}_project_{project_id}_user_{user_id}"
+                    
                     content_summary = ContentSummaryModel.create_new(
                         url_id=url_id,
                         content_id=content_id,
@@ -309,7 +437,7 @@ class MarketIntelligenceService:
                         version=1,
                         is_canonical=True,
                         preferred_choice=True,
-                        created_by=f"perplexity_extractor_{request_id}"
+                        created_by=created_by_info
                     )
                     
                     # Save to database using the existing database client
@@ -326,20 +454,34 @@ class MarketIntelligenceService:
                     logger.error(f"📊 🚨 Error processing item {i}: {item_error}")
                     continue
             
-            # Create an overall summary for the request
+            # Create an overall summary for the request with enhanced metadata
             if summaries_created > 0:
-                overall_summary_text = f"Perplexity extraction completed for request {request_id}. Successfully processed {summaries_created}/{len(extracted_content)} URLs."
+                project_id = request_details.get('project_id', 'unknown')
+                user_id = request_details.get('user_id', 'unknown')
+                request_type = request_details.get('request_type', 'unknown')
+                
+                overall_summary_text = f"[Project: {project_id}] [User: {user_id}] [Type: {request_type}] Perplexity extraction completed for request {request_id}. Successfully processed {summaries_created}/{len(extracted_content)} URLs."
+                
+                # Create enhanced storage path for overall summary
+                overall_summary_path = self._create_enhanced_storage_path(
+                    request_details, 
+                    "overall_summary", 
+                    "perplexity_summary", 
+                    datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+                )
+                
+                overall_created_by = f"perplexity_orchestrator_{request_id}_project_{project_id}_user_{user_id}"
                 
                 overall_summary = ContentSummaryModel.create_new(
                     url_id=str(uuid.uuid4()),
                     content_id=str(uuid.uuid4()),
                     summary_text=overall_summary_text,
-                    summary_content_file_path=f"{request_id}/perplexity_overall_summary.json",
+                    summary_content_file_path=overall_summary_path,
                     confidence_score=summaries_created / len(extracted_content) if extracted_content else 0.0,
                     version=1,
                     is_canonical=True,
                     preferred_choice=True,
-                                        created_by=f"perplexity_orchestrator_{request_id}"
+                    created_by=overall_created_by
                 )
                 
                 table_name = ContentSummaryModel.table_name()
@@ -356,11 +498,23 @@ class MarketIntelligenceService:
             logger.error(f"📊 🚨 Traceback: {traceback.format_exc()}")
             return False
     
-    async def _assemble_final_summary(self, request_id: str, discovered_urls: Dict[str, Any], content_summary: Dict[str, Any]) -> Dict[str, Any]:
+    async def _assemble_final_summary(self, request_id: str, discovered_urls: Dict[str, Any], content_summary: Dict[str, Any], request_details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Assemble final summary for Stage1 processing"""
         try:
-            # Store summary metadata for Stage1 orchestrator
-            summary_path = f"{request_id}/stage0_summary.json"
+            # Fetch request details if not provided
+            if not request_details:
+                request_details = await self._fetch_request_details(request_id)
+                if not request_details:
+                    request_details = {"request_id": request_id, "project_id": "unknown", "user_id": "unknown"}
+            
+            # Create enhanced storage path for stage0 summary
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            summary_path = self._create_enhanced_storage_path(
+                request_details, 
+                "stage0_summary", 
+                "stage0_summary", 
+                timestamp
+            )
             
             summary_data = {
                 "request_id": request_id,
@@ -368,7 +522,15 @@ class MarketIntelligenceService:
                 "url_discovery": discovered_urls,
                 "content_extraction": content_summary,
                 "ready_for_stage1": True,
-                "extracted_files": [item["storage_path"] for item in content_summary.get("extracted_content", [])]
+                "extracted_files": [item["storage_path"] for item in content_summary.get("extracted_content", [])],
+                # Enhanced metadata from request details
+                "request_metadata": {
+                    "project_id": request_details.get("project_id"),
+                    "user_id": request_details.get("user_id"),
+                    "request_type": request_details.get("request_type"),
+                    "priority": request_details.get("priority"),
+                    "created_at": request_details.get("created_at")
+                }
             }
             
             # Store stage0 summary

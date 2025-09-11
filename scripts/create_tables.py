@@ -43,12 +43,19 @@ def create_table(client, table_name, table_config):
     try:
         print(f"Creating table: {table_name}")
         
-        response = client.create_table(
-            TableName=table_name,
-            KeySchema=table_config['KeySchema'],
-            AttributeDefinitions=table_config['AttributeDefinitions'],
-            BillingMode=table_config['BillingMode']
-        )
+        # Base table creation parameters
+        create_params = {
+            'TableName': table_name,
+            'KeySchema': table_config['KeySchema'],
+            'AttributeDefinitions': table_config['AttributeDefinitions'],
+            'BillingMode': table_config['BillingMode']
+        }
+        
+        # Add Global Secondary Indexes if they exist
+        if 'GlobalSecondaryIndexes' in table_config:
+            create_params['GlobalSecondaryIndexes'] = table_config['GlobalSecondaryIndexes']
+        
+        response = client.create_table(**create_params)
         
         print(f"✅ Table {table_name} created successfully!")
         return response
